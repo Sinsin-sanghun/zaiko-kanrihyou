@@ -240,6 +240,7 @@ export default function InventoryPage() {
         <DailyCountModal
           item={showDaily}
           onClose={() => setShowDaily(null)}
+          onUpdated={loadItems}
         />
       )}
     </div>
