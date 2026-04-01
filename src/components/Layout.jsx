@@ -14,7 +14,14 @@ export default function Layout({ session, children, userRole }) {
   const [dragId, setDragId] = useState(null)
   const [legacyCollapsed, setLegacyCollapsed] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [contextMenuId, setContextMenuId] = useState(null)
   const location = useLocation()
+
+  useEffect(() => {
+    const handleClick = () => setContextMenuId(null)
+    document.addEventListener('click', handleClick)
+    return () => document.removeEventListener('click', handleClick)
+  }, [])
 
   const fetchLocations = useCallback(() => {
     supabase.from('locations').select('*').order('sort_order').then(({ data }) => {
@@ -121,7 +128,7 @@ export default function Layout({ session, children, userRole }) {
             {activeLocations.map((loc) => (
               <div
                 key={loc.id}
-                className={`group relative flex items-center rounded text-sm ${
+                className={`relative flex items-center rounded text-sm ${
                   location.pathname === `/location/${loc.id}` ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'
                 } ${dragOverId === loc.id ? 'border-t-2 border-blue-400' : ''}`}
                 draggable={userRole === 'admin'}
@@ -129,6 +136,7 @@ export default function Layout({ session, children, userRole }) {
                 onDragOver={(e) => handleDragOver(e, loc.id)}
                 onDrop={(e) => handleDrop(e, loc.id)}
                 onDragLeave={() => setDragOverId(null)}
+                onContextMenu={(e) => { if (userRole === 'admin') { e.preventDefault(); setContextMenuId(contextMenuId === loc.id ? null : loc.id) } }}
               >
                 {userRole === 'admin' && (
                   <span className="cursor-grab pl-1 text-slate-300 hover:text-slate-500 text-xs select-none" title="ドラッグで並び替え">⠿</span>
@@ -147,28 +155,29 @@ export default function Layout({ session, children, userRole }) {
                     {loc.name}
                   </Link>
                 )}
-                {userRole === 'admin' && editingId !== loc.id && (
-                  <div className="hidden group-hover:flex items-center gap-0.5 pr-1">
+                {userRole === 'admin' && contextMenuId === loc.id && editingId !== loc.id && (
+                  <div className="absolute right-0 top-full z-20 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-36" onClick={(e) => e.stopPropagation()}>
                     <button
-                      onClick={(e) => { e.preventDefault(); setEditingId(loc.id); setEditName(loc.name) }}
-                      className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-blue-600"
-                      title="名前を編集"
+                      onClick={(e) => { e.preventDefault(); setContextMenuId(null); setEditingId(loc.id); setEditName(loc.name) }}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                      名前を編集
                     </button>
                     <button
-                      onClick={(e) => { e.preventDefault(); handleArchive(loc.id, loc.archived) }}
-                      className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-amber-600"
-                      title="アーカイブ（非表示）"
+                      onClick={(e) => { e.preventDefault(); setContextMenuId(null); handleArchive(loc.id, loc.archived) }}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8" /></svg>
+                      アーカイブ
                     </button>
+                    <div className="border-t border-slate-100 my-1" />
                     <button
-                      onClick={(e) => { e.preventDefault(); handleDelete(loc.id) }}
-                      className={`p-1 rounded hover:bg-slate-200 ${deleteConfirm === loc.id ? 'text-red-600 animate-pulse' : 'text-slate-400 hover:text-red-600'}`}
-                      title={deleteConfirm === loc.id ? '本当に削除しますか？もう一度クリック' : '拠点を削除'}
+                      onClick={(e) => { e.preventDefault(); setContextMenuId(null); handleDelete(loc.id) }}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${deleteConfirm === loc.id ? 'text-red-600 font-semibold' : 'text-red-500 hover:bg-red-50'}`}
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      {deleteConfirm === loc.id ? 'もう一度クリックで削除' : '拠点を削除'}
                     </button>
                   </div>
                 )}
@@ -182,24 +191,31 @@ export default function Layout({ session, children, userRole }) {
                   <span className="bg-slate-200 text-slate-500 rounded-full px-1.5 text-xs">{archivedLocations.length}</span>
                 </div>
                 {archivedLocations.map((loc) => (
-                  <div key={loc.id} className="group relative flex items-center rounded text-sm text-slate-400 italic">
+                  <div
+                    key={loc.id}
+                    className="relative flex items-center rounded text-sm text-slate-400 italic"
+                    onContextMenu={(e) => { e.preventDefault(); setContextMenuId(contextMenuId === loc.id ? null : loc.id) }}
+                  >
                     <Link to={`/location/${loc.id}`} className="flex-1 block px-3 py-1.5 truncate">{loc.name}</Link>
-                    <div className="hidden group-hover:flex items-center gap-0.5 pr-1">
-                      <button
-                        onClick={() => handleArchive(loc.id, loc.archived)}
-                        className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-green-600"
-                        title="アーカイブ解除"
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                      </button>
-                      <button
-                        onClick={() => handleDelete(loc.id)}
-                        className={`p-1 rounded hover:bg-slate-200 ${deleteConfirm === loc.id ? 'text-red-600 animate-pulse' : 'text-slate-400 hover:text-red-600'}`}
-                        title={deleteConfirm === loc.id ? '本当に削除しますか？もう一度クリック' : '完全に削除'}
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
-                    </div>
+                    {contextMenuId === loc.id && (
+                      <div className="absolute right-0 top-full z-20 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-36" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => { setContextMenuId(null); handleArchive(loc.id, loc.archived) }}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-green-600 hover:bg-green-50"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                          アーカイブ解除
+                        </button>
+                        <div className="border-t border-slate-100 my-1" />
+                        <button
+                          onClick={() => { setContextMenuId(null); handleDelete(loc.id) }}
+                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${deleteConfirm === loc.id ? 'text-red-600 font-semibold' : 'text-red-500 hover:bg-red-50'}`}
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          {deleteConfirm === loc.id ? 'もう一度クリックで削除' : '完全に削除'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -234,7 +250,7 @@ export default function Layout({ session, children, userRole }) {
               <div className="flex gap-1">
                 <input
                   className="flex-1 px-2 py-1 text-sm border border-slate-300 rounded"
-                  placeholder="拠点名を入力"
+                  placeholder="拠灹名を入力"
                   value={newLocationName}
                   onChange={(e) => setNewLocationName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddLocation() }}
