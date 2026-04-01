@@ -7,17 +7,32 @@ import Auth from './components/Auth'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import InventoryPage from './pages/InventoryPage'
+import UserManagementPage from './pages/UserManagementPage'
 
 const ALLOWED_DOMAIN = 'shirokumapower.com'
 
 export default function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [userRole, setUserRole] = useState('viewer')
 
   const checkDomain = (session) => {
     if (!session?.user?.email) return false
     const domain = session.user.email.split('@')[1]
     return domain === ALLOWED_DOMAIN
+  }
+
+  const fetchUserRole = async (email) => {
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('email', email)
+      .single()
+    if (data && !error) {
+      setUserRole(data.role)
+    } else {
+      setUserRole('viewer')
+    }
   }
 
   useEffect(() => {
@@ -28,6 +43,9 @@ export default function App() {
         setSession(null)
       } else {
         setSession(session)
+        if (session?.user?.email) {
+          fetchUserRole(session.user.email)
+        }
       }
       setLoading(false)
     })
@@ -38,6 +56,9 @@ export default function App() {
         setSession(null)
       } else {
         setSession(session)
+        if (session?.user?.email) {
+          fetchUserRole(session.user.email)
+        }
       }
     })
     return () => subscription.unsubscribe()
@@ -62,10 +83,13 @@ export default function App() {
 
   return (
     <>
-      <Layout session={session}>
+      <Layout session={session} userRole={userRole}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/location/:id" element={<InventoryPage />} />
+          <Route path="/location/:id" element={<InventoryPage userRole={userRole} />} />
+          {userRole === 'admin' && (
+            <Route path="/user-management" element={<UserManagementPage />} />
+          )}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Layout>
