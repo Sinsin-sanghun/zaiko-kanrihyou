@@ -29,7 +29,8 @@ export default function Layout({ session, children }) {
     if (!name) return
     setAdding(true)
     const { error } = await supabase.from('locations').insert({ name })
-    if (error) {      alert('拠点の追加に失敗しました: ' + error.message)
+    if (error) {
+      alert('拠点の追加に失敗しました: ' + error.message)
     } else {
       setNewLocationName('')
       setShowAddForm(false)
@@ -41,14 +42,14 @@ export default function Layout({ session, children }) {
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
-      <aside className={`${sidebarOpen ? 'w-64' : 'w-0'} bg-white border-r border-slate-200 flex-shrink-0 transition-all duration-300 overflow-hidden`}>
+      <aside className={`${sidebarOpen ? 'w-64' : 'w-0'} bg-white border-r border-slate-200 flex-shrink-0 transition-all duration-300 overflow-hidden flex flex-col`}>
         <div className="p-4 border-b border-slate-200">
           <Link to="/" className="flex items-center gap-2">
             <span className="text-2xl">📦</span>
             <span className="font-bold text-slate-800">在庫管理</span>
           </Link>
         </div>
-        <nav className="p-3 space-y-1">
+        <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
           <Link
             to="/"
             className={`block px-3 py-2 rounded-lg text-sm font-medium transition ${
@@ -59,7 +60,8 @@ export default function Layout({ session, children }) {
           </Link>
           <div className="pt-2 pb-1 px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
             拠点一覧
-          </div>          {[...locations].sort((a, b) => {
+          </div>
+          {[...locations].sort((a, b) => {
             const aOld = a.name.includes('旧') ? 1 : 0
             const bOld = b.name.includes('旧') ? 1 : 0
             return aOld - bOld
@@ -75,8 +77,10 @@ export default function Layout({ session, children }) {
             >
               {loc.name}
             </Link>
-          ))}          {showAddForm ? (
-            <div className="mt-2 p-2 bg-slate-50 rounded-lg border border-slate-200">
+          ))}
+        </nav>        <div className="p-3 border-t border-slate-200">
+          {showAddForm ? (
+            <div className="p-2 bg-slate-50 rounded-lg border border-slate-200">
               <input
                 type="text"
                 value={newLocationName}
@@ -103,10 +107,11 @@ export default function Layout({ session, children }) {
                   キャンセル
                 </button>
               </div>
-            </div>          ) : (
+            </div>
+          ) : (
             <button
               onClick={() => setShowAddForm(true)}
-              className="mt-2 w-full flex items-center justify-center gap-1 px-3 py-2 text-sm text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-dashed border-slate-300 hover:border-blue-400 transition"
+              className="w-full flex items-center justify-center gap-1 px-3 py-2 text-sm text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-dashed border-slate-300 hover:border-blue-400 transition"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -114,9 +119,8 @@ export default function Layout({ session, children }) {
               拠点追加
             </button>
           )}
-        </nav>
+        </div>
       </aside>
-
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
