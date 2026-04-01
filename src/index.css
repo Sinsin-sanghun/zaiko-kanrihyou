@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Meiryo", sans-serif;
+    font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Meiryo", sans-serif;
 }
 
 /* Custom scrollbar */
@@ -14,4 +14,4 @@ body {
 
 /* Table sticky header */
 .table-container { max-height: calc(100vh - 280px); overflow: auto; }
-.table-container thead th { position: sticky; top: 0; z-index: 10; }
+.table-container thead th { position: sticky; top: 0; z-index: 10; background-color: rgb(248, 250, 252); }
