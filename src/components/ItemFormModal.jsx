@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 
 export default function ItemFormModal({ locationId, item, onClose, onSaved }) {
   const isEdit = !!item
+
   const [form, setForm] = useState({
     product_name: item?.product_name || '',
     owner: item?.owner || '',
@@ -12,22 +13,14 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved }) {
     location_detail: item?.location_detail || '',
     model: item?.model || '',
     item_no: item?.item_no || '',
-    quantity: item?.quantity ?? '',
     unit: item?.unit || '',
     unit_price: item?.unit_price ?? '',
-    total_price: item?.total_price ?? '',
     remarks: item?.remarks || '',
   })
   const [saving, setSaving] = useState(false)
 
   const handleChange = (field, value) => {
-    const updated = { ...form, [field]: value }
-    if (field === 'quantity' || field === 'unit_price') {
-      const qty = field === 'quantity' ? Number(value) || 0 : Number(updated.quantity) || 0
-      const price = field === 'unit_price' ? Number(value) || 0 : Number(updated.unit_price) || 0
-      updated.total_price = qty * price
-    }
-    setForm(updated)
+    setForm({ ...form, [field]: value })
   }
 
   const handleSubmit = async (e) => {
@@ -36,6 +29,7 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved }) {
       toast.error('品名を入力してください')
       return
     }
+
     setSaving(true)
 
     const payload = {
@@ -47,11 +41,15 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved }) {
       location_detail: form.location_detail.trim() || null,
       model: form.model.trim() || null,
       item_no: form.item_no.trim() || null,
-      quantity: Number(form.quantity) || 0,
       unit: form.unit.trim() || null,
       unit_price: Number(form.unit_price) || 0,
-      total_price: Number(form.total_price) || 0,
       remarks: form.remarks.trim() || null,
+    }
+
+    // For new items, initialize quantity and total_price
+    if (!isEdit) {
+      payload.quantity = 0
+      payload.total_price = 0
     }
 
     let error
@@ -62,6 +60,7 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved }) {
     }
 
     setSaving(false)
+
     if (error) {
       toast.error('保存に失敗しました: ' + error.message)
     } else {
@@ -123,12 +122,7 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved }) {
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
           </div>
 
-          <div className="grid grid-cols-4 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">数量</label>
-              <input type="number" step="any" value={form.quantity} onChange={(e) => handleChange('quantity', e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
-            </div>
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">単位</label>
               <input type="text" value={form.unit} onChange={(e) => handleChange('unit', e.target.value)}
@@ -139,17 +133,19 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved }) {
               <input type="number" step="any" value={form.unit_price} onChange={(e) => handleChange('unit_price', e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">合計金額</label>
-              <input type="number" step="any" value={form.total_price} onChange={(e) => handleChange('total_price', e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-slate-50" />
-            </div>
           </div>
+
+          {isEdit && (
+            <div className="bg-slate-50 rounded-lg p-3 text-sm text-slate-600">
+              <span className="font-medium">在庫数:</span> {new Intl.NumberFormat('ja-JP').format(item.quantity ?? 0)} {item.unit || ''}
+              <span className="text-xs text-slate-400 ml-2">(棚卸履歴から変更できます)</span>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">備考</label>
-            <textarea value={form.remarks} onChange={(e) => handleChange('remarks', e.target.value)} rows={2}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none" />
+            <textarea value={form.remarks} onChange={(e) => handleChange('remarks', e.target.value)}
+              rows={2} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none" />
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
@@ -166,4 +162,4 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved }) {
       </div>
     </div>
   )
-      }
+}
