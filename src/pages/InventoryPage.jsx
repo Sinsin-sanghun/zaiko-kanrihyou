@@ -37,12 +37,12 @@ export default function InventoryPage() {
   }, [loadItems])
 
   const handleDelete = async (item) => {
-    if (!confirm(`ã${item.product_name}ããåé¤ãã¾ããï¼`)) return
+    if (!confirm(`「${item.product_name}」を削除しますか？`)) return
     const { error } = await supabase.from('inventory_items').delete().eq('id', item.id)
     if (error) {
-      toast.error('åé¤ã«å¤±æãã¾ãã')
+      toast.error('削除に失敗しました')
     } else {
-      toast.success('åé¤ãã¾ãã')
+      toast.success('削除しました')
       loadItems()
     }
   }
@@ -99,7 +99,7 @@ export default function InventoryPage() {
           onClick={() => { setEditItem(null); setShowForm(true) }}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex-shrink-0"
         >
-          + æ°è¦åç®è¿½å 
+          + 新規品目追加
         </button>
       </div>
 
@@ -109,14 +109,14 @@ export default function InventoryPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="ååã»æã¡ä¸»ã»ä»å¥åã§æ¤ç´¢..."
+            placeholder="品名・持ち主・仕入先で検索..."
             className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
           />
           <svg className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
-        <span className="text-sm text-slate-500">{filtered.length} ä»¶</span>
+        <span className="text-sm text-slate-500">{filtered.length} 件</span>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -125,23 +125,23 @@ export default function InventoryPage() {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="text-left px-4 py-3 font-semibold text-slate-600 cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort('product_name')}>
-                  åå<SortIcon field="product_name" />
+                  品名<SortIcon field="product_name" />
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600 cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort('owner')}>
-                  æã¡ä¸»<SortIcon field="owner" />
+                  持ち主<SortIcon field="owner" />
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-slate-600 cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort('supplier')}>
-                  ä»å¥å<SortIcon field="supplier" />
+                  仕入先<SortIcon field="supplier" />
                 </th>
                 <th className="text-right px-4 py-3 font-semibold text-slate-600 cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort('quantity')}>
-                  å¨åº«æ°<SortIcon field="quantity" />
+                  在庫数<SortIcon field="quantity" />
                 </th>
-                <th className="text-left px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">åä½</th>
+                <th className="text-left px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">単位</th>
                 <th className="text-right px-4 py-3 font-semibold text-slate-600 cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort('unit_price')}>
-                  åä¾¡<SortIcon field="unit_price" />
+                  単価<SortIcon field="unit_price" />
                 </th>
-                <th className="text-right px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">åè¨éé¡</th>
-                <th className="text-center px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">æä½</th>
+                <th className="text-right px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">合計金額</th>
+                <th className="text-center px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -166,7 +166,7 @@ export default function InventoryPage() {
                       <button
                         onClick={() => setShowDaily(item)}
                         className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition"
-                        title="æ£å¸å±¥æ­´"
+                        title="棚卸履歴"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -175,7 +175,7 @@ export default function InventoryPage() {
                       <button
                         onClick={() => { setEditItem(item); setShowForm(true) }}
                         className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-amber-600 transition"
-                        title="ç·¨é"
+                        title="編集"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -184,7 +184,7 @@ export default function InventoryPage() {
                       <button
                         onClick={() => handleDelete(item)}
                         className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-red-600 transition"
-                        title="åé¤"
+                        title="削除"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -197,7 +197,7 @@ export default function InventoryPage() {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
-                    {search ? 'æ¤ç´¢çµæãããã¾ãã' : 'ãã¼ã¿ãããã¾ãã'}
+                    {search ? '検索結果がありません' : 'データがありません'}
                   </td>
                 </tr>
               )}
