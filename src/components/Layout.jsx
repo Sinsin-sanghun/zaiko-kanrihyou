@@ -39,7 +39,11 @@ export default function Layout({ session, children }) {
           <div className="pt-2 pb-1 px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
             拠点一覧
           </div>
-          {locations.map((loc) => (
+          {[...locations].sort((a, b) => {
+              const aOld = a.name.includes('旧') ? 1 : 0
+              const bOld = b.name.includes('旧') ? 1 : 0
+              return aOld - bOld
+            }).map((loc) => (
             <Link
               key={loc.id}
               to={`/location/${loc.id}`}
