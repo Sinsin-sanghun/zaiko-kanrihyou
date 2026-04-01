@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
+import * as XLSX from 'xlsx'
 import ItemFormModal from '../components/ItemFormModal'
 import DailyCountModal from '../components/DailyCountModal'
 
@@ -20,13 +21,11 @@ export default function InventoryPage() {
   const loadItems = useCallback(async () => {
     const { data: loc } = await supabase.from('locations').select('*').eq('id', id).single()
     setLocation(loc)
-
     const { data } = await supabase
       .from('inventory_items')
       .select('*')
       .eq('location_id', id)
       .order(sortField, { ascending: sortDir === 'asc' })
-
     setItems(data || [])
     setLoading(false)
   }, [id, sortField, sortDir])
@@ -46,7 +45,6 @@ export default function InventoryPage() {
       loadItems()
     }
   }
-
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
@@ -77,7 +75,24 @@ export default function InventoryPage() {
     if (!val && val !== 0) return '-'
     return new Intl.NumberFormat('ja-JP').format(val)
   }
-
+  const handleExcelDownload = () => {
+    const data = filtered.map((item) => ({
+      '品名': item.product_name || '',
+      '保管場所': item.location_detail || '',
+      '持ち主': item.owner || '',
+      '仕入先': item.supplier || item.manufacturer || '',
+      '在庫数': item.quantity ?? 0,
+      '単位': item.unit || '',
+      '単価': item.unit_price ?? 0,
+      '合計金額': item.total_price ?? 0,
+      '備考': item.remarks || '',
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, location?.name || '在庫一覧')
+    const fileName = `在庫一覧_${location?.name || ''}_${new Date().toISOString().slice(0, 10)}.xlsx`
+    XLSX.writeFile(wb, fileName)
+  }
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -95,15 +110,24 @@ export default function InventoryPage() {
             <p className="text-sm text-slate-500 mt-1">{location.description}</p>
           )}
         </div>
-        <button
-          onClick={() => { setEditItem(null); setShowForm(true) }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex-shrink-0"
-        >
-          + 新規品目追加
-        </button>
-      </div>
-
-      <div className="flex items-center gap-4 mb-4">
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={handleExcelDownload}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Excelダウンロード
+          </button>
+          <button
+            onClick={() => { setEditItem(null); setShowForm(true) }}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition"
+          >
+            + 新規品目追加
+          </button>
+        </div>
+      </div>      <div className="flex items-center gap-4 mb-4">
         <div className="relative flex-1 max-w-md">
           <input
             type="text"
@@ -143,8 +167,7 @@ export default function InventoryPage() {
                 <th className="text-right px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">合計金額</th>
                 <th className="text-center px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">操作</th>
               </tr>
-            </thead>
-            <tbody>
+            </thead>            <tbody>
               {filtered.map((item) => (
                 <tr key={item.id} className="border-b border-slate-100 hover:bg-blue-50/30 transition">
                   <td className="px-4 py-3 max-w-xs">
@@ -193,8 +216,7 @@ export default function InventoryPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
-              {filtered.length === 0 && (
+              ))}              {filtered.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
                     {search ? '検索結果がありません' : 'データがありません'}
@@ -214,7 +236,6 @@ export default function InventoryPage() {
           onSaved={() => { setShowForm(false); setEditItem(null); loadItems() }}
         />
       )}
-
       {showDaily && (
         <DailyCountModal
           item={showDaily}
@@ -223,4 +244,4 @@ export default function InventoryPage() {
       )}
     </div>
   )
-  }
+}
