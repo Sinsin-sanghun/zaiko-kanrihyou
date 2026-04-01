@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 
-export default function DailyCountModal({ item, onClose }) {
+export default function DailyCountModal({ item, onClose, onUpdated }) {
   const [counts, setCounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0])
   const [newValue, setNewValue] = useState('')
   const [saving, setSaving] = useState(false)
+  const [currentQty, setCurrentQty] = useState(item.quantity ?? 0)
 
   useEffect(() => {
     loadCounts()
@@ -27,36 +28,80 @@ export default function DailyCountModal({ item, onClose }) {
   const handleAdd = async (e) => {
     e.preventDefault()
     if (!newDate || newValue === '') return
+    const delta = Number(newValue)
+    if (isNaN(delta)) return
+
     setSaving(true)
 
-    const { error } = await supabase.from('daily_counts').upsert({
+    // 1. Record the daily count
+    const { error: countError } = await supabase.from('daily_counts').upsert({
       item_id: item.id,
       count_date: newDate,
-      count_value: Number(newValue),
+      count_value: delta,
     }, { onConflict: 'item_id,count_date' })
 
-    setSaving(false)
-    if (error) {
+    if (countError) {
+      setSaving(false)
       toast.error('保存に失敗しました')
+      return
+    }
+
+    // 2. Update inventory quantity by delta
+    const newQty = currentQty + delta
+    const unitPrice = item.unit_price ?? 0
+    const { error: updateError } = await supabase
+      .from('inventory_items')
+      .update({
+        quantity: newQty,
+        total_price: newQty * unitPrice,
+      })
+      .eq('id', item.id)
+
+    setSaving(false)
+
+    if (updateError) {
+      toast.error('在庫数の更新に失敗しました')
     } else {
-      toast.success('記録しました')
+      const sign = delta >= 0 ? '+' : ''
+      toast.success('記録しました (' + sign + delta + ' \u2192 在庫: ' + newQty + ')')
       setNewValue('')
+      setCurrentQty(newQty)
       loadCounts()
+      if (onUpdated) onUpdated()
     }
   }
 
-  const handleDeleteCount = async (countId) => {
-    const { error } = await supabase.from('daily_counts').delete().eq('id', countId)
-    if (!error) {
-      toast.success('削除しました')
-      loadCounts()
+  const handleDeleteCount = async (count) => {
+    if (!confirm('この記録 (数量: ' + count.count_value + ') を削除し、在庫数を元に戻しますか？')) return
+
+    const reverseDelta = -(count.count_value ?? 0)
+    const newQty = currentQty + reverseDelta
+    const unitPrice = item.unit_price ?? 0
+
+    const { error: delError } = await supabase.from('daily_counts').delete().eq('id', count.id)
+    if (delError) {
+      toast.error('削除に失敗しました')
+      return
     }
+
+    await supabase
+      .from('inventory_items')
+      .update({
+        quantity: newQty,
+        total_price: newQty * unitPrice,
+      })
+      .eq('id', item.id)
+
+    toast.success('記録を削除し、在庫数を ' + newQty + ' に戻しました')
+    setCurrentQty(newQty)
+    loadCounts()
+    if (onUpdated) onUpdated()
   }
 
   const formatDate = (dateStr) => {
     const d = new Date(dateStr)
     const days = ['日', '月', '火', '水', '木', '金', '土']
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} (${days[d.getDay()]})`
+    return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0') + ' (' + days[d.getDay()] + ')'
   }
 
   return (
@@ -66,6 +111,7 @@ export default function DailyCountModal({ item, onClose }) {
           <div>
             <h2 className="text-lg font-bold text-slate-800">棚卸履歴</h2>
             <p className="text-sm text-slate-500 truncate max-w-xs">{item.product_name}</p>
+            <p className="text-xs text-blue-600 font-medium mt-0.5">現在の在庫数: {new Intl.NumberFormat('ja-JP').format(currentQty)}</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -80,10 +126,10 @@ export default function DailyCountModal({ item, onClose }) {
             <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)}
               className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
           </div>
-          <div className="w-24">
-            <label className="block text-xs font-medium text-slate-600 mb-1">数量</label>
+          <div className="w-28">
+            <label className="block text-xs font-medium text-slate-600 mb-1">増減数</label>
             <input type="number" step="any" value={newValue} onChange={(e) => setNewValue(e.target.value)}
-              placeholder="0"
+              placeholder="例: 50, -20"
               className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
           </div>
           <button type="submit" disabled={saving}
@@ -104,7 +150,7 @@ export default function DailyCountModal({ item, onClose }) {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 sticky top-0">
                   <th className="text-left px-6 py-2 text-slate-600 font-medium">日付</th>
-                  <th className="text-right px-6 py-2 text-slate-600 font-medium">数量</th>
+                  <th className="text-right px-6 py-2 text-slate-600 font-medium">増減数</th>
                   <th className="w-10"></th>
                 </tr>
               </thead>
@@ -112,11 +158,11 @@ export default function DailyCountModal({ item, onClose }) {
                 {counts.map((c) => (
                   <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50">
                     <td className="px-6 py-2 text-slate-700">{formatDate(c.count_date)}</td>
-                    <td className="px-6 py-2 text-right font-medium text-slate-800">
-                      {new Intl.NumberFormat('ja-JP').format(c.count_value)}
+                    <td className={'px-6 py-2 text-right font-medium ' + (c.count_value >= 0 ? 'text-blue-700' : 'text-red-600')}>
+                      {c.count_value >= 0 ? '+' : ''}{new Intl.NumberFormat('ja-JP').format(c.count_value)}
                     </td>
                     <td className="pr-4">
-                      <button onClick={() => handleDeleteCount(c.id)}
+                      <button onClick={() => handleDeleteCount(c)}
                         className="p-1 text-slate-300 hover:text-red-500 transition">
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -132,4 +178,4 @@ export default function DailyCountModal({ item, onClose }) {
       </div>
     </div>
   )
-            }
+}
