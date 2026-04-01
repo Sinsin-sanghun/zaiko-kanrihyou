@@ -39,6 +39,14 @@ export default function Layout({ session, children }) {
     setAdding(false)
   }
 
+  const sorted = [...locations].sort((a, b) => {
+    const aOld = a.name.includes('旧') ? 1 : 0
+    const bOld = b.name.includes('旧') ? 1 : 0
+    return aOld - bOld
+  })
+  const normalLocs = sorted.filter((l) => !l.name.includes('旧'))
+  const legacyLocs = sorted.filter((l) => l.name.includes('旧'))
+
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
@@ -60,12 +68,7 @@ export default function Layout({ session, children }) {
           </Link>
           <div className="pt-2 pb-1 px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
             拠点一覧
-          </div>
-          {[...locations].sort((a, b) => {
-            const aOld = a.name.includes('旧') ? 1 : 0
-            const bOld = b.name.includes('旧') ? 1 : 0
-            return aOld - bOld
-          }).map((loc) => (
+          </div>          {normalLocs.map((loc) => (
             <Link
               key={loc.id}
               to={`/location/${loc.id}`}
@@ -78,6 +81,23 @@ export default function Layout({ session, children }) {
               {loc.name}
             </Link>
           ))}
+          {legacyLocs.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-slate-200">
+              {legacyLocs.map((loc) => (
+                <Link
+                  key={loc.id}
+                  to={`/location/${loc.id}`}
+                  className={`block px-3 py-2 rounded-lg text-sm transition ${
+                    location.pathname === `/location/${loc.id}`
+                      ? 'bg-blue-50 text-blue-700 font-medium'
+                      : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-500'
+                  }`}
+                >
+                  {loc.name}
+                </Link>
+              ))}
+            </div>
+          )}
         </nav>        <div className="p-3 border-t border-slate-200">
           {showAddForm ? (
             <div className="p-2 bg-slate-50 rounded-lg border border-slate-200">
