@@ -54,7 +54,7 @@ export default function Layout({ session, children }) {
         <div className="p-4 border-b border-slate-200">
           <Link to="/" className="flex items-center gap-2">
             <span className="text-2xl">📦</span>
-            <span className="font-bold text-slate-800">在庫管理</span>
+            <span className="font-bold text-slate-800">在庫管理データシート</span>
           </Link>
         </div>
         <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
