@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
@@ -8,17 +8,23 @@ export default function Layout({ session, children, userRole }) {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newLocationName, setNewLocationName] = useState('')
   const [adding, setAdding] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [dragOverId, setDragOverId] = useState(null)
+  const [dragId, setDragId] = useState(null)
+  const [legacyCollapsed, setLegacyCollapsed] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
   const location = useLocation()
 
-  const fetchLocations = () => {
-    supabase.from('locations').select('*').order('id').then(({ data }) => {
+  const fetchLocations = useCallback(() => {
+    supabase.from('locations').select('*').order('sort_order').then(({ data }) => {
       if (data) setLocations(data)
     })
-  }
+  }, [])
 
   useEffect(() => {
     fetchLocations()
-  }, [])
+  }, [fetchLocations])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -28,10 +34,9 @@ export default function Layout({ session, children, userRole }) {
     const name = newLocationName.trim()
     if (!name) return
     setAdding(true)
-    const { error } = await supabase.from('locations').insert({ name })
-    if (error) {
-      alert('拠点の追加に失敗しました: ' + error.message)
-    } else {
+    const maxSort = locations.filter(l => !l.is_legacy).reduce((max, l) => Math.max(max, l.sort_order || 0), 0)
+    const { error } = await supabase.from('locations').insert({ name, sort_order: maxSort + 1, is_legacy: false, archived: false })
+    if (!error) {
       setNewLocationName('')
       setShowAddForm(false)
       fetchLocations()
@@ -39,138 +44,244 @@ export default function Layout({ session, children, userRole }) {
     setAdding(false)
   }
 
-  const sorted = [...locations].sort((a, b) => {
-    const aOld = a.name.includes('旧') ? 1 : 0
-    const bOld = b.name.includes('旧') ? 1 : 0
-    return aOld - bOld
-  })
-  const normalLocs = sorted.filter((l) => !l.name.includes('旧'))
-  const legacyLocs = sorted.filter((l) => l.name.includes('旧'))
+  const handleRename = async (id) => {
+    const name = editName.trim()
+    if (!name) { setEditingId(null); return }
+    await supabase.from('locations').update({ name }).eq('id', id)
+    setEditingId(null)
+    fetchLocations()
+  }
+
+  const handleDelete = async (id) => {
+    if (deleteConfirm === id) {
+      await supabase.from('locations').delete().eq('id', id)
+      setDeleteConfirm(null)
+      fetchLocations()
+    } else {
+      setDeleteConfirm(id)
+      setTimeout(() => setDeleteConfirm(null), 5000)
+    }
+  }
+
+  const handleArchive = async (id, currentArchived) => {
+    await supabase.from('locations').update({ archived: !currentArchived }).eq('id', id)
+    fetchLocations()
+  }
+
+  const handleDragStart = (e, id) => {
+    setDragId(id)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e, id) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverId(id)
+  }
+
+  const handleDrop = async (e, targetId) => {
+    e.preventDefault()
+    setDragOverId(null)
+    if (!dragId || dragId === targetId) { setDragId(null); return }
+    const activeLocations = locations.filter(l => !l.is_legacy && !l.archived)
+    const dragIndex = activeLocations.findIndex(l => l.id === dragId)
+    const targetIndex = activeLocations.findIndex(l => l.id === targetId)
+    if (dragIndex === -1 || targetIndex === -1) { setDragId(null); return }
+    const reordered = [...activeLocations]
+    const [moved] = reordered.splice(dragIndex, 1)
+    reordered.splice(targetIndex, 0, moved)
+    const updates = reordered.map((loc, i) => supabase.from('locations').update({ sort_order: i + 1 }).eq('id', loc.id))
+    await Promise.all(updates)
+    setDragId(null)
+    fetchLocations()
+  }
+
+  const activeLocations = locations.filter(l => !l.is_legacy && !l.archived)
+  const archivedLocations = locations.filter(l => !l.is_legacy && l.archived)
+  const legacyLocations = locations.filter(l => l.is_legacy)
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      {/* Sidebar */}
-      <aside className={`${sidebarOpen ? 'w-64' : 'w-0'} bg-white border-r border-slate-200 flex-shrink-0 transition-all duration-300 overflow-hidden flex flex-col`}>
-        <div className="p-4 border-b border-slate-200">
-          <Link to="/" className="flex items-center gap-2">
-            <span className="text-2xl">📦</span>
-            <span className="font-bold text-slate-800">在庫管理データシート</span>
+    <div className="min-h-screen flex bg-slate-50">
+      {sidebarOpen && (
+        <aside className="w-56 bg-white border-r border-slate-200 flex flex-col fixed h-full z-10 overflow-y-auto">
+          <Link to="/" className="flex items-center gap-2 px-4 py-4 font-bold text-blue-700 border-b border-slate-100">
+            <span>📦</span> 在庫管理データシート
           </Link>
-        </div>
-        <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
-          <Link
-            to="/"
-            className={`block px-3 py-2 rounded-lg text-sm font-medium transition ${
-              location.pathname === '/' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            ダッシュボード
-          </Link>
-          <div className="pt-2 pb-1 px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            拠点一覧
-          </div>          {normalLocs.map((loc) => (
+
+          <nav className="flex-1 px-2 py-2">
             <Link
-              key={loc.id}
-              to={`/location/${loc.id}`}
-              className={`block px-3 py-2 rounded-lg text-sm transition ${
-                location.pathname === `/location/${loc.id}`
-                  ? 'bg-blue-50 text-blue-700 font-medium'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
+              to="/"
+              className={`block px-3 py-2 rounded text-sm ${location.pathname === '/' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}
             >
-              {loc.name}
+              ダッシュボード
             </Link>
-          ))}
-          {legacyLocs.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-slate-200">
-              {legacyLocs.map((loc) => (
-                <Link
-                  key={loc.id}
-                  to={`/location/${loc.id}`}
-                  className={`block px-3 py-2 rounded-lg text-sm transition ${
-                    location.pathname === `/location/${loc.id}`
-                      ? 'bg-blue-50 text-blue-700 font-medium'
-                      : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-500'
-                  }`}
+
+            <div className="px-3 py-2 text-xs text-slate-400 font-semibold mt-2">拠点一覧</div>
+
+            {activeLocations.map((loc) => (
+              <div
+                key={loc.id}
+                className={`group relative flex items-center rounded text-sm ${
+                  location.pathname === `/location/${loc.id}` ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'
+                } ${dragOverId === loc.id ? 'border-t-2 border-blue-400' : ''}`}
+                draggable={userRole === 'admin'}
+                onDragStart={(e) => handleDragStart(e, loc.id)}
+                onDragOver={(e) => handleDragOver(e, loc.id)}
+                onDrop={(e) => handleDrop(e, loc.id)}
+                onDragLeave={() => setDragOverId(null)}
+              >
+                {userRole === 'admin' && (
+                  <span className="cursor-grab pl-1 text-slate-300 hover:text-slate-500 text-xs select-none" title="ドラッグで並び替え">⠿</span>
+                )}
+                {editingId === loc.id ? (
+                  <input
+                    className="flex-1 px-2 py-2 text-sm border border-blue-300 rounded bg-white outline-none"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onBlur={() => handleRename(loc.id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleRename(loc.id); if (e.key === 'Escape') setEditingId(null) }}
+                    autoFocus
+                  />
+                ) : (
+                  <Link to={`/location/${loc.id}`} className="flex-1 block px-2 py-2 truncate">
+                    {loc.name}
+                  </Link>
+                )}
+                {userRole === 'admin' && editingId !== loc.id && (
+                  <div className="hidden group-hover:flex items-center gap-0.5 pr-1">
+                    <button
+                      onClick={(e) => { e.preventDefault(); setEditingId(loc.id); setEditName(loc.name) }}
+                      className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-blue-600"
+                      title="名前を編集"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    </button>
+                    <button
+                      onClick={(e) => { e.preventDefault(); handleArchive(loc.id, loc.archived) }}
+                      className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-amber-600"
+                      title="アーカイブ（非表示）"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8" /></svg>
+                    </button>
+                    <button
+                      onClick={(e) => { e.preventDefault(); handleDelete(loc.id) }}
+                      className={`p-1 rounded hover:bg-slate-200 ${deleteConfirm === loc.id ? 'text-red-600 animate-pulse' : 'text-slate-400 hover:text-red-600'}`}
+                      title={deleteConfirm === loc.id ? '本当に削除しますか？もう一度クリック' : '拠点を削除'}
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {userRole === 'admin' && archivedLocations.length > 0 && (
+              <div className="mt-3">
+                <div className="px-3 py-1 text-xs text-slate-400 font-semibold flex items-center gap-1">
+                  <span>アーカイブ済み</span>
+                  <span className="bg-slate-200 text-slate-500 rounded-full px-1.5 text-xs">{archivedLocations.length}</span>
+                </div>
+                {archivedLocations.map((loc) => (
+                  <div key={loc.id} className="group relative flex items-center rounded text-sm text-slate-400 italic">
+                    <Link to={`/location/${loc.id}`} className="flex-1 block px-3 py-1.5 truncate">{loc.name}</Link>
+                    <div className="hidden group-hover:flex items-center gap-0.5 pr-1">
+                      <button
+                        onClick={() => handleArchive(loc.id, loc.archived)}
+                        className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-green-600"
+                        title="アーカイブ解除"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(loc.id)}
+                        className={`p-1 rounded hover:bg-slate-200 ${deleteConfirm === loc.id ? 'text-red-600 animate-pulse' : 'text-slate-400 hover:text-red-600'}`}
+                        title={deleteConfirm === loc.id ? '本当に削除しますか？もう一度クリック' : '完全に削除'}
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {legacyLocations.length > 0 && (
+              <div className="mt-4 border-t border-slate-200 pt-2">
+                <button
+                  onClick={() => setLegacyCollapsed(!legacyCollapsed)}
+                  className="w-full flex items-center justify-between px-3 py-1 text-xs text-slate-400 font-semibold hover:text-slate-600"
                 >
-                  {loc.name}
-                </Link>
-              ))}
-            </div>
-          )}
-        </nav>        <div className="p-3 border-t border-slate-200">
-          {showAddForm ? (
-            <div className="p-2 bg-slate-50 rounded-lg border border-slate-200">
-              <input
-                type="text"
-                value={newLocationName}
-                onChange={(e) => setNewLocationName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleAddLocation() }}
-                placeholder="拠点名を入力"
-                className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-                autoFocus
-                disabled={adding}
-              />
-              <div className="flex gap-2 mt-2">
+                  <span>旧在庫管理表</span>
+                  <svg className={`w-3 h-3 transition-transform ${legacyCollapsed ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                {!legacyCollapsed && legacyLocations.map((loc) => (
+                  <Link
+                    key={loc.id}
+                    to={`/location/${loc.id}`}
+                    className={`block px-3 py-1.5 rounded text-sm bg-slate-50 ${
+                      location.pathname === `/location/${loc.id}` ? 'text-blue-700 font-semibold' : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    {loc.name}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </nav>
+
+          <div className="border-t border-slate-200 p-2">
+            {showAddForm ? (
+              <div className="flex gap-1">
+                <input
+                  className="flex-1 px-2 py-1 text-sm border border-slate-300 rounded"
+                  placeholder="拠点名を入力"
+                  value={newLocationName}
+                  onChange={(e) => setNewLocationName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddLocation() }}
+                  autoFocus
+                />
                 <button
                   onClick={handleAddLocation}
-                  disabled={adding || !newLocationName.trim()}
-                  className="flex-1 px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50 transition"
+                  disabled={adding}
+                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {adding ? '追加中...' : '追加'}
+                  追加
                 </button>
                 <button
                   onClick={() => { setShowAddForm(false); setNewLocationName('') }}
-                  className="flex-1 px-2 py-1 text-xs font-medium text-slate-600 bg-slate-200 rounded hover:bg-slate-300 transition"
-                  disabled={adding}
+                  className="px-2 py-1 text-xs text-slate-500 hover:text-slate-700"
                 >
-                  キャンセル
+                  &#x2715;
                 </button>
               </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="w-full flex items-center justify-center gap-1 px-3 py-2 text-sm text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-dashed border-slate-300 hover:border-blue-400 transition"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              拠点追加
-            </button>
-          )}
-        </div>
-      </aside>
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+            ) : (
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="w-full px-3 py-2 text-sm text-slate-500 hover:text-blue-600 hover:bg-slate-50 rounded text-left"
+              >
+                ＋ 拠点追加
+              </button>
+            )}
+          </div>
+        </aside>
+      )}
+
+      <div className={`flex-1 flex flex-col ${sidebarOpen ? 'ml-56' : ''}`}>
+        <header className="bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between sticky top-0 z-10">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600"
+            className="p-1 rounded hover:bg-slate-100 text-slate-500"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-500">{session.user.email}</span>
-          {userRole === 'admin' && (
-            <Link
-              to="/user-management"
-              className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors mt-2 ${
-                location.pathname === '/user-management'
-                  ? 'bg-blue-100 text-blue-800'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              ユーザー管理
-            </Link>
-          )}
-
-            <button
-              onClick={handleLogout}
-              className="text-sm text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50 transition"
-            >
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-slate-500">{session?.user?.email}</span>
+            {userRole === 'admin' && (
+              <Link to="/user-management" className="text-blue-600 hover:text-blue-800 font-medium border border-blue-200 rounded px-2 py-1">
+                ユーザー管理
+              </Link>
+            )}
+            <button onClick={handleLogout} className="text-slate-500 hover:text-slate-700">
               ログアウト
             </button>
           </div>
@@ -179,6 +290,12 @@ export default function Layout({ session, children, userRole }) {
           {children}
         </main>
       </div>
+
+      {deleteConfirm && (
+        <div className="fixed bottom-4 right-4 bg-red-50 border border-red-200 rounded-lg shadow-lg px-4 py-3 text-sm text-red-700 z-50 animate-bounce">
+          ⚠️ 削除ボタンをもう一度クリックすると、この拠点とすべてのデータが完全に削除されます。
+        </div>
+      )}
     </div>
   )
 }
