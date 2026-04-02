@@ -167,6 +167,12 @@ export default function Layout({ session, children, userRole }) {
             >
               ダッシュボード
             </Link>
+            <Link
+              to="/todo"
+              className={`block px-3 py-2 rounded text-sm ${location.pathname === '/todo' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}
+            >
+              📋 課題管理ボード
+            </Link>
 
             <div className="px-3 py-2 text-xs text-slate-400 font-semibold mt-2">拠点一覧</div>
 
@@ -184,7 +190,7 @@ export default function Layout({ session, children, userRole }) {
                 onContextMenu={(e) => { e.preventDefault(); setContextMenuId(contextMenuId === loc.id ? null : loc.id) }}
               >
                 {userRole === 'admin' && (
-                  <span className="cursor-grab pl-1 text-slate-300 hover:text-slate-500 text-xs select-none" title="ドラッグで並び替え">⠿</span>
+                  <span className="cursor-grab pl-1 text-slate-300 hover:text-slate-500 text-xs select-none" title="ドラッグで並び替え">⠇</span>
                 )}
                 {editingId === loc.id ? (
                   <input
