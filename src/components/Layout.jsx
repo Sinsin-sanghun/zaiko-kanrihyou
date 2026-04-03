@@ -22,6 +22,7 @@ export default function Layout({ session, children, userRole }) {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [contextMenuId, setContextMenuId] = useState(null)
   const [deletionRequests, setDeletionRequests] = useState([])
+  const [renameRequests, setRenameRequests] = useState([])
   const [requestingDeletion, setRequestingDeletion] = useState(false)
   const [showApprovalPanel, setShowApprovalPanel] = useState(false)
   const location = useLocation()
@@ -77,10 +78,17 @@ export default function Layout({ session, children, userRole }) {
     })
   }, [])
 
+  const fetchRenameRequests = useCallback(() => {
+    supabase.from('approval_requests').select('*').eq('type', 'rename_location').eq('status', 'pending').then(({ data }) => {
+      if (data) setRenameRequests(data)
+    })
+  }, [])
+
   useEffect(() => {
     fetchLocations()
     fetchDeletionRequests()
-  }, [fetchLocations, fetchDeletionRequests])
+    fetchRenameRequests()
+  }, [fetchLocations, fetchDeletionRequests, fetchRenameRequests])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -108,6 +116,26 @@ export default function Layout({ session, children, userRole }) {
     setEditingId(null)
     fetchLocations()
   }
+
+  const handleRequestRename = async (locId, currentName) => {
+    const newName = prompt('新しい拠点名を入力してください:', currentName)
+    if (!newName || newName.trim() === '' || newName.trim() === currentName) return
+    const { error } = await supabase.from('approval_requests').insert({
+      type: 'rename_location',
+      target_id: locId,
+      target_name: currentName,
+      new_value: newName.trim(),
+      requested_by: session?.user?.email || 'unknown'
+    })
+    if (error) {
+      alert('申請に失敗しました')
+    } else {
+      alert('名前変更申請を送信しました。\n管理者の承認をお待ちください。')
+      fetchRenameRequests()
+    }
+  }
+
+  const hasPendingRename = (locId) => renameRequests.some(r => r.target_id === locId)
 
   const handleDelete = async (id) => {
     if (deleteConfirm === id) {
@@ -274,7 +302,16 @@ export default function Layout({ session, children, userRole }) {
                       </>
                     )}
                     {userRole !== 'admin' && (
-                      pendingRequestForLocation(loc.id) ? (
+                      <>
+                      <button
+                        onClick={(e) => { e.preventDefault(); setContextMenuId(null); handleRequestRename(loc.id, loc.name) }}
+                        className={"w-full flex items-center gap-2 px-3 py-1.5 text-xs " + (hasPendingRename(loc.id) ? "text-orange-500" : "text-slate-600 hover:bg-slate-50")}
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                        {hasPendingRename(loc.id) ? '名前変更申請中' : '名前変更を申請'}
+                      </button>
+                      <div className="border-t border-slate-100 my-1" />
+                      {pendingRequestForLocation(loc.id) ? (
                         <div className="px-3 py-1.5 text-xs text-orange-500 flex items-center gap-2">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                           削除申請中（承認待ち）
@@ -289,6 +326,7 @@ export default function Layout({ session, children, userRole }) {
                           削除を申請
                         </button>
                       )
+                      </>
                     )}
                   </div>
                 )}
@@ -359,7 +397,16 @@ export default function Layout({ session, children, userRole }) {
                       </>
                     )}
                     {userRole !== 'admin' && (
-                      pendingRequestForLocation(loc.id) ? (
+                      <>
+                      <button
+                        onClick={(e) => { e.preventDefault(); setContextMenuId(null); handleRequestRename(loc.id, loc.name) }}
+                        className={"w-full flex items-center gap-2 px-3 py-1.5 text-xs " + (hasPendingRename(loc.id) ? "text-orange-500" : "text-slate-600 hover:bg-slate-50")}
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                        {hasPendingRename(loc.id) ? '名前変更申請中' : '名前変更を申請'}
+                      </button>
+                      <div className="border-t border-slate-100 my-1" />
+                      {pendingRequestForLocation(loc.id) ? (
                         <div className="px-3 py-1.5 text-xs text-orange-500 flex items-center gap-2">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                           削除申請中（承認待ち）
@@ -374,6 +421,7 @@ export default function Layout({ session, children, userRole }) {
                           削除を申請
                         </button>
                       )
+                      </>
                     )}
                   </div>
                 )}
@@ -514,6 +562,12 @@ export default function Layout({ session, children, userRole }) {
               <>
                 <Link to="/user-management" className="text-blue-600 hover:text-blue-800 font-medium border border-blue-200 rounded px-2 py-1">
                   ユーザー管理
+                </Link>
+                <Link to="/approvals" className="text-orange-600 hover:text-orange-800 font-medium border border-orange-200 rounded px-2 py-1 relative">
+                  承認管理
+                  {(deletionRequests.length > 0 || renameRequests.length > 0) && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">{deletionRequests.length + renameRequests.length}</span>
+                  )}
                 </Link>
                 {deletionRequests.length > 0 && (
                   <button
