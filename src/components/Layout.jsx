@@ -28,8 +28,6 @@ export default function Layout({ session, children, userRole }) {
     return () => document.removeEventListener('click', handleClick)
   }, [])
 
-
-  // Sidebar resize handlers
   const sidebarRef = useRef(null)
   const isResizingRef = useRef(false)
 
@@ -125,7 +123,7 @@ export default function Layout({ session, children, userRole }) {
     })
     if (!error) {
       fetchDeletionRequests()
-      alert('åé¤ç³è«ãéä¿¡ãã¾ãããç®¡çèã®æ¿èªããå¾ã¡ãã ããã')
+      alert('削除申請を送信しました。管理者の承認をお待ちください。')
     }
     setRequestingDeletion(false)
   }
@@ -194,7 +192,7 @@ export default function Layout({ session, children, userRole }) {
       {sidebarOpen && (
         <aside ref={sidebarRef} style={{ width: sidebarWidth + "px" }} className="bg-white border-r border-slate-200 flex flex-col fixed h-full z-10 overflow-y-auto">
           <Link to="/" className="flex items-center gap-2 px-4 py-4 font-bold text-blue-700 border-b border-slate-100">
-            <span>ð¦</span> å¨åº«ç®¡çãã¼ã¿ã·ã¼ã
+            <span>📦</span> 在庫管理データシート
           </Link>
 
           <nav className="flex-1 px-2 py-2">
@@ -202,10 +200,10 @@ export default function Layout({ session, children, userRole }) {
               to="/"
               className={`block px-3 py-2 rounded text-sm ${location.pathname === '/' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}
             >
-              ããã·ã¥ãã¼ã
+              ダッシュボード
             </Link>
 
-            <div className="px-3 py-2 text-xs text-slate-400 font-semibold mt-2">æ ç¹ä¸è¦§</div>
+            <div className="px-3 py-2 text-xs text-slate-400 font-semibold mt-2">拠点一覧</div>
 
             {activeLocations.map((loc) => (
               <div
@@ -221,7 +219,7 @@ export default function Layout({ session, children, userRole }) {
                 onContextMenu={(e) => { e.preventDefault(); setContextMenuId(contextMenuId === loc.id ? null : loc.id) }}
               >
                 {userRole === 'admin' && (
-                  <span className="cursor-grab pl-1 text-slate-300 hover:text-slate-500 text-xs select-none" title="ãã©ãã°ã§ä¸¦ã³æ¿ã">â ¿</span>
+                  <span className="cursor-grab pl-1 text-slate-300 hover:text-slate-500 text-xs select-none" title="ドラッグで並び替え">⠿</span>
                 )}
                 {editingId === loc.id ? (
                   <input
@@ -246,14 +244,14 @@ export default function Layout({ session, children, userRole }) {
                           className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                          ååãç·¨é
+                          名前を編集
                         </button>
                         <button
                           onClick={(e) => { e.preventDefault(); setContextMenuId(null); handleArchive(loc.id, loc.archived) }}
                           className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8" /></svg>
-                          ã¢ã¼ã«ã¤ã
+                          アーカイブ
                         </button>
                         <div className="border-t border-slate-100 my-1" />
                         <button
@@ -261,7 +259,7 @@ export default function Layout({ session, children, userRole }) {
                           className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${deleteConfirm === loc.id ? 'text-red-600 font-semibold' : 'text-red-500 hover:bg-red-50'}`}
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          {deleteConfirm === loc.id ? 'ããä¸åº¦ã¯ãªãã¯ã§åé¤' : 'æ ç¹ãåé¤'}
+                          {deleteConfirm === loc.id ? 'もう一度クリックで削除' : '拠点を削除'}
                         </button>
                       </>
                     )}
@@ -269,7 +267,7 @@ export default function Layout({ session, children, userRole }) {
                       pendingRequestForLocation(loc.id) ? (
                         <div className="px-3 py-1.5 text-xs text-orange-500 flex items-center gap-2">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                          åé¤ç³è«ä¸­ï¼æ¿èªå¾ã¡ï¼
+                          削除申請中（承認待ち）
                         </div>
                       ) : (
                         <button
@@ -278,7 +276,7 @@ export default function Layout({ session, children, userRole }) {
                           className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 disabled:opacity-50"
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          åé¤ãç³è«
+                          削除を申請
                         </button>
                       )
                     )}
@@ -290,7 +288,7 @@ export default function Layout({ session, children, userRole }) {
             {userRole === 'admin' && archivedLocations.length > 0 && (
               <div className="mt-3">
                 <div className="px-3 py-1 text-xs text-slate-400 font-semibold flex items-center gap-1">
-                  <span>ã¢ã¼ã«ã¤ãæ¸ã¿</span>
+                  <span>アーカイブ済み</span>
                   <span className="bg-slate-200 text-slate-500 rounded-full px-1.5 text-xs">{archivedLocations.length}</span>
                 </div>
                 {archivedLocations.map((loc) => (
@@ -307,7 +305,7 @@ export default function Layout({ session, children, userRole }) {
                           className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-green-600 hover:bg-green-50"
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                          ã¢ã¼ã«ã¤ãè§£é¤
+                          アーカイブ解除
                         </button>
                         <div className="border-t border-slate-100 my-1" />
                         <button
@@ -315,7 +313,7 @@ export default function Layout({ session, children, userRole }) {
                           className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${deleteConfirm === loc.id ? 'text-red-600 font-semibold' : 'text-red-500 hover:bg-red-50'}`}
                         >
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          {deleteConfirm === loc.id ? 'ããä¸åº¦ã¯ãªãã¯ã§åé¤' : 'å®å¨ã«åé¤'}
+                          {deleteConfirm === loc.id ? 'もう一度クリックで削除' : '完全に削除'}
                         </button>
                       </div>
                     )}
@@ -330,7 +328,7 @@ export default function Layout({ session, children, userRole }) {
                   onClick={() => setLegacyCollapsed(!legacyCollapsed)}
                   className="w-full flex items-center justify-between px-3 py-1 text-xs text-slate-400 font-semibold hover:text-slate-600"
                 >
-                  <span>æ§å¨åº«ç®¡çè¡¨</span>
+                  <span>旧在庫管理表</span>
                   <svg className={`w-3 h-3 transition-transform ${legacyCollapsed ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                 </button>
                 {!legacyCollapsed && legacyLocations.map((loc) => (
@@ -353,7 +351,7 @@ export default function Layout({ session, children, userRole }) {
               <div className="flex gap-1">
                 <input
                   className="flex-1 px-2 py-1 text-sm border border-slate-300 rounded"
-                  placeholder="æ ç¹åãå¥å"
+                  placeholder="拠点名を入力"
                   value={newLocationName}
                   onChange={(e) => setNewLocationName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddLocation() }}
@@ -364,7 +362,7 @@ export default function Layout({ session, children, userRole }) {
                   disabled={adding}
                   className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                 >
-                  è¿½å 
+                  追加
                 </button>
                 <button
                   onClick={() => { setShowAddForm(false); setNewLocationName('') }}
@@ -378,20 +376,20 @@ export default function Layout({ session, children, userRole }) {
                 onClick={() => setShowAddForm(true)}
                 className="w-full px-3 py-2 text-sm text-slate-500 hover:text-blue-600 hover:bg-slate-50 rounded text-left"
               >
-                ï¼ æ ç¹è¿½å 
+                ＋ 拠点追加
               </button>
             )}
           </div>
 
-          {/* Resize handle */}
-          <div
-            onMouseDown={handleMouseDown}
-            className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-blue-400 transition-colors"
-            style={{ 
-              backgroundColor: isResizing ? '#60a5fa' : 'transparent',
-            }}
-            title="Drag to resize"
-          />
+            {/* Resize handle */}
+            <div
+              onMouseDown={handleMouseDown}
+              className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-blue-400 transition-colors"
+              style={{ 
+                backgroundColor: isResizing ? '#60a5fa' : 'transparent',
+              }}
+              title="Drag to resize"
+            />
         </aside>
       )}
 
@@ -408,21 +406,21 @@ export default function Layout({ session, children, userRole }) {
             {userRole === 'admin' && (
               <>
                 <Link to="/user-management" className="text-blue-600 hover:text-blue-800 font-medium border border-blue-200 rounded px-2 py-1">
-                  ã¦ã¼ã¶ã¼ç®¡ç
+                  ユーザー管理
                 </Link>
                 {deletionRequests.length > 0 && (
                   <button
                     onClick={() => setShowApprovalPanel(!showApprovalPanel)}
                     className="relative text-orange-600 hover:text-orange-800 font-medium border border-orange-200 rounded px-2 py-1"
                   >
-                    åé¤ç³è«
+                    削除申請
                     <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">{deletionRequests.length}</span>
                   </button>
                 )}
               </>
             )}
             <button onClick={handleLogout} className="text-slate-500 hover:text-slate-700">
-              ã­ã°ã¢ã¦ã
+              ログアウト
             </button>
           </div>
         </header>
@@ -434,7 +432,7 @@ export default function Layout({ session, children, userRole }) {
       {showApprovalPanel && userRole === 'admin' && deletionRequests.length > 0 && (
         <div className="fixed top-12 right-4 w-80 bg-white border border-slate-200 rounded-lg shadow-xl z-50">
           <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100">
-            <span className="text-sm font-semibold text-slate-700">åé¤ç³è«ä¸è¦§</span>
+            <span className="text-sm font-semibold text-slate-700">削除申請一覧</span>
             <button onClick={() => setShowApprovalPanel(false)} className="text-slate-400 hover:text-slate-600 text-xs">&#x2715;</button>
           </div>
           <div className="max-h-64 overflow-y-auto">
@@ -443,20 +441,20 @@ export default function Layout({ session, children, userRole }) {
               return (
                 <div key={req.id} className="px-4 py-2 border-b border-slate-50 last:border-b-0">
                   <div className="text-sm font-medium text-slate-700">{loc?.name || `ID: ${req.location_id}`}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">ç³è«è: {req.requested_by}</div>
+                  <div className="text-xs text-slate-400 mt-0.5">申請者: {req.requested_by}</div>
                   <div className="text-xs text-slate-400">{new Date(req.requested_at).toLocaleString('ja-JP')}</div>
                   <div className="flex gap-2 mt-1.5">
                     <button
                       onClick={() => handleApproveDeletion(req.id, req.location_id)}
                       className="px-2 py-0.5 text-xs bg-red-500 text-white rounded hover:bg-red-600"
                     >
-                      æ¿èªï¼åé¤ï¼
+                      承認（削除）
                     </button>
                     <button
                       onClick={() => handleRejectDeletion(req.id)}
                       className="px-2 py-0.5 text-xs bg-slate-200 text-slate-600 rounded hover:bg-slate-300"
                     >
-                      å´ä¸
+                      却下
                     </button>
                   </div>
                 </div>
@@ -468,7 +466,7 @@ export default function Layout({ session, children, userRole }) {
 
       {deleteConfirm && (
         <div className="fixed bottom-4 right-4 bg-red-50 border border-red-200 rounded-lg shadow-lg px-4 py-3 text-sm text-red-700 z-50 animate-bounce">
-          â ï¸ åé¤ãã¿ã³ãããä¸åº¦ã¯ãªãã¯ããã¨ããã®æ ç¹ã¨ãã¹ã¦ã®ãã¼ã¿ãå®å¨ã«åé¤ããã¾ãã
+          ⚠️ 削除ボタンをもう一度クリックすると、この拠点とすべてのデータが完全に削除されます。
         </div>
       )}
     </div>
