@@ -6,7 +6,7 @@ import * as XLSX from 'xlsx'
 import ItemFormModal from '../components/ItemFormModal'
 import DailyCountModal from '../components/DailyCountModal'
 
-export default function InventoryPage({ userRole }) {
+export default function InventoryPage({ userRole, session }) {
   const { id } = useParams()
   const [location, setLocation] = useState(null)
   const [items, setItems] = useState([])
@@ -17,6 +17,7 @@ export default function InventoryPage({ userRole }) {
   const [showDaily, setShowDaily] = useState(null)
   const [sortField, setSortField] = useState('product_name')
   const [sortDir, setSortDir] = useState('asc')
+  const [pendingRequests, setPendingRequests] = useState([])
 
   const loadItems = useCallback(async () => {
     const { data: loc } = await supabase.from('locations').select('*').eq('id', id).single()
@@ -30,10 +31,21 @@ export default function InventoryPage({ userRole }) {
     setLoading(false)
   }, [id, sortField, sortDir])
 
+  const loadPendingRequests = useCallback(async () => {
+    const { data } = await supabase
+      .from('approval_requests')
+      .select('*')
+      .eq('type', 'delete_item')
+      .eq('location_id', Number(id))
+      .eq('status', 'pending')
+    setPendingRequests(data || [])
+  }, [id])
+
   useEffect(() => {
     setLoading(true)
     loadItems()
-  }, [loadItems])
+    loadPendingRequests()
+  }, [loadItems, loadPendingRequests])
 
   const handleDelete = async (item) => {
     if (!confirm(`「${item.product_name}」を削除しますか？`)) return
@@ -211,15 +223,34 @@ export default function InventoryPage({ userRole }) {
                       </button>
                       )}
                       {userRole === 'admin' && (
-                      <button
-                        onClick={() => handleDelete(item)}
-                        className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-red-600 transition"
-                        title="削除"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                        <button
+                          onClick={() => handleDelete(item)}
+                          className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-red-600 transition"
+                          title="削除"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
+                      {userRole === 'editor' && (
+                        isPendingDelete(item.id) ? (
+                          <span className="p-1.5 text-orange-400" title="削除申請中（承認待ち）">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleRequestDelete(item)}
+                            className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-red-600 transition"
+                            title="削除を申請"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        )
                       )}
                     </div>
                   </td>
