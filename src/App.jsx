@@ -30,6 +30,7 @@ export default function App() {
       .select('role')
       .eq('email', email)
       .single()
+
     if (data && !error) {
       setUserRole(data.role)
     } else {
@@ -51,7 +52,10 @@ export default function App() {
       }
       setLoading(false)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session && !checkDomain(session)) {
         supabase.auth.signOut()
         toast.error('@shirokumapower.com のアカウントのみ利用できます')
@@ -63,6 +67,7 @@ export default function App() {
         }
       }
     })
+
     return () => subscription.unsubscribe()
   }, [])
 
@@ -91,8 +96,10 @@ export default function App() {
           <Route path="/location/:id" element={<InventoryPage userRole={userRole} session={session} />} />
           <Route path="/todo" element={<TodoPage session={session} />} />
           {userRole === 'admin' && (
-            <Route path="/user-management" element={<UserManagementPage />} />
+            <>
+              <Route path="/user-management" element={<UserManagementPage />} />
               <Route path="/approvals" element={<ApprovalPage session={session} />} />
+            </>
           )}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
