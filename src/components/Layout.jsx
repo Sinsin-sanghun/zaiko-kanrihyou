@@ -460,9 +460,9 @@ export default function Layout({ session, children, userRole }) {
                   value={newLocationCategory}
                   onChange={(e) => setNewLocationCategory(e.target.value)}
                 >
-                  <option value="domestic">🗾 日本国内拠点</option>
-                  <option value="overseas">🌎 海外拠点</option>
-                  <option value="legacy">旧在庫管理表</option>
+                  <option value="domestic">🗾日本</option>
+                  <option value="overseas">🌎海外</option>
+                  <option value="legacy">旧在庫</option>
                 </select>
                 <button
                   onClick={handleAddLocation}
