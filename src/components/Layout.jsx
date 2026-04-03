@@ -9,6 +9,7 @@ export default function Layout({ session, children, userRole }) {
   const [isResizing, setIsResizing] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [newLocationName, setNewLocationName] = useState('')
+  const [newLocationCategory, setNewLocationCategory] = useState('domestic')
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
@@ -87,9 +88,10 @@ export default function Layout({ session, children, userRole }) {
     if (!name) return
     setAdding(true)
     const maxSort = locations.filter(l => !l.is_legacy).reduce((max, l) => Math.max(max, l.sort_order || 0), 0)
-    const { error } = await supabase.from('locations').insert({ name, sort_order: maxSort + 1, is_legacy: false, archived: false })
+    const { error } = await supabase.from('locations').insert({ name, sort_order: maxSort + 1, is_legacy: false, archived: false, category: newLocationCategory })
     if (!error) {
       setNewLocationName('')
+      setNewLocationCategory('domestic')
       setShowAddForm(false)
       fetchLocations()
     }
@@ -185,7 +187,9 @@ export default function Layout({ session, children, userRole }) {
 
   const activeLocations = locations.filter(l => !l.is_legacy && !l.archived)
   const archivedLocations = locations.filter(l => !l.is_legacy && l.archived)
-  const legacyLocations = locations.filter(l => l.is_legacy)
+  const domesticLocations = locations.filter(l => l.category === 'domestic' || (!l.category && !l.is_legacy))
+  const overseasLocations = locations.filter(l => l.category === 'overseas')
+  const legacyLocations = locations.filter(l => l.category === 'legacy' || l.is_legacy)
 
   return (
     <div className="min-h-screen flex bg-slate-50">
@@ -203,9 +207,9 @@ export default function Layout({ session, children, userRole }) {
               ダッシュボード
             </Link>
 
-            <div className="px-3 py-2 text-xs text-slate-400 font-semibold mt-2">拠点一覧</div>
+            <div className="px-3 py-2 text-xs text-slate-400 font-semibold mt-2">🗾 日本国内拠点</div>
 
-            {activeLocations.map((loc) => (
+            {domesticLocations.map((loc) => (
               <div
                 key={loc.id}
                 className={`relative flex items-center rounded text-sm ${
@@ -285,6 +289,91 @@ export default function Layout({ session, children, userRole }) {
               </div>
             ))}
 
+            <div className="px-3 py-2 text-xs text-slate-400 font-semibold mt-2">🌎 海外拠点</div>
+            {overseasLocations.length > 0 ? (
+              overseasLocations.map((loc) => (
+              <div
+                key={loc.id}
+                className={`relative flex items-center rounded text-sm ${
+                  location.pathname === `/location/${loc.id}` ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'
+                } ${dragOverId === loc.id ? 'border-t-2 border-blue-400' : ''}`}
+                draggable={userRole === 'admin'}
+                onDragStart={(e) => handleDragStart(e, loc.id)}
+                onDragOver={(e) => handleDragOver(e, loc.id)}
+                onDrop={(e) => handleDrop(e, loc.id)}
+                onDragLeave={() => setDragOverId(null)}
+                onContextMenu={(e) => { e.preventDefault(); setContextMenuId(contextMenuId === loc.id ? null : loc.id) }}
+              >
+                {userRole === 'admin' && (
+                  <span className="cursor-grab pl-1 text-slate-300 hover:text-slate-500 text-xs select-none" title="ドラッグで並び替え">⠿</span>
+                )}
+                {editingId === loc.id ? (
+                  <input
+                    className="flex-1 px-2 py-2 text-sm border border-blue-300 rounded bg-white outline-none"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onBlur={() => handleRename(loc.id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleRename(loc.id); if (e.key === 'Escape') setEditingId(null) }}
+                    autoFocus
+                  />
+                ) : (
+                  <Link to={`/location/${loc.id}`} className="flex-1 block px-2 py-2 truncate">
+                    {loc.name}
+                  </Link>
+                )}
+                {contextMenuId === loc.id && editingId !== loc.id && (
+                  <div className="absolute right-0 top-full z-20 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-36" onClick={(e) => e.stopPropagation()}>
+                    {userRole === 'admin' && (
+                      <>
+                        <button
+                          onClick={(e) => { e.preventDefault(); setContextMenuId(null); setEditingId(loc.id); setEditName(loc.name) }}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                          名前を編集
+                        </button>
+                        <button
+                          onClick={(e) => { e.preventDefault(); setContextMenuId(null); handleArchive(loc.id, loc.archived) }}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8" /></svg>
+                          アーカイブ
+                        </button>
+                        <div className="border-t border-slate-100 my-1" />
+                        <button
+                          onClick={(e) => { e.preventDefault(); setContextMenuId(null); handleDelete(loc.id) }}
+                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs ${deleteConfirm === loc.id ? 'text-red-600 font-semibold' : 'text-red-500 hover:bg-red-50'}`}
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          {deleteConfirm === loc.id ? 'もう一度クリックで削除' : '拠点を削除'}
+                        </button>
+                      </>
+                    )}
+                    {userRole !== 'admin' && (
+                      pendingRequestForLocation(loc.id) ? (
+                        <div className="px-3 py-1.5 text-xs text-orange-500 flex items-center gap-2">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          削除申請中（承認待ち）
+                        </div>
+                      ) : (
+                        <button
+                          onClick={(e) => { e.preventDefault(); setContextMenuId(null); handleRequestDeletion(loc.id) }}
+                          disabled={requestingDeletion}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          削除を申請
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+            ))
+            ) : (
+              <div className="px-3 py-2 text-xs text-slate-300 italic">海外拠点はまだありません</div>
+            )}
+
             {userRole === 'admin' && archivedLocations.length > 0 && (
               <div className="mt-3">
                 <div className="px-3 py-1 text-xs text-slate-400 font-semibold flex items-center gap-1">
@@ -357,6 +446,15 @@ export default function Layout({ session, children, userRole }) {
                   onKeyDown={(e) => { if (e.key === 'Enter') handleAddLocation() }}
                   autoFocus
                 />
+                <select
+                  className="w-full px-2 py-1 text-sm border border-slate-300 rounded mt-1"
+                  value={newLocationCategory}
+                  onChange={(e) => setNewLocationCategory(e.target.value)}
+                >
+                  <option value="domestic">🗾 日本国内拠点</option>
+                  <option value="overseas">🌎 海外拠点</option>
+                  <option value="legacy">旧在庫管理表</option>
+                </select>
                 <button
                   onClick={handleAddLocation}
                   disabled={adding}
