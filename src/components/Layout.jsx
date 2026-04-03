@@ -10,6 +10,9 @@ export default function Layout({ session, children, userRole }) {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newLocationName, setNewLocationName] = useState('')
   const [newLocationCategory, setNewLocationCategory] = useState('domestic')
+  const [domesticOpen, setDomesticOpen] = useState(true)
+  const [overseasOpen, setOverseasOpen] = useState(true)
+  const [legacyOpen, setLegacyOpen] = useState(false)
   const [adding, setAdding] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
@@ -207,9 +210,12 @@ export default function Layout({ session, children, userRole }) {
               ダッシュボード
             </Link>
 
-            <div className="px-3 py-2 text-xs text-slate-400 font-semibold mt-2">🗾 日本国内拠点</div>
+            <button onClick={() => setDomesticOpen(!domesticOpen)} className="w-full flex items-center justify-between px-3 py-2 text-xs text-slate-400 font-semibold mt-2 hover:text-slate-600 transition-colors">
+              <span>🗾 日本国内拠点</span>
+              <span className={`transform transition-transform ${domesticOpen ? "rotate-0" : "-rotate-90"}`}>▼</span>
+            </button>
 
-            {domesticLocations.map((loc) => (
+            {domesticOpen && domesticLocations.map((loc) => (
               <div
                 key={loc.id}
                 className={`relative flex items-center rounded text-sm ${
@@ -289,8 +295,11 @@ export default function Layout({ session, children, userRole }) {
               </div>
             ))}
 
-            <div className="px-3 py-2 text-xs text-slate-400 font-semibold mt-2">🌎 海外拠点</div>
-            {overseasLocations.length > 0 ? (
+            <button onClick={() => setOverseasOpen(!overseasOpen)} className="w-full flex items-center justify-between px-3 py-2 text-xs text-slate-400 font-semibold mt-2 hover:text-slate-600 transition-colors">
+              <span>🌎 海外拠点</span>
+              <span className={`transform transition-transform ${overseasOpen ? "rotate-0" : "-rotate-90"}`}>▼</span>
+            </button>
+            {overseasOpen && (overseasLocations.length > 0 ? (
               overseasLocations.map((loc) => (
               <div
                 key={loc.id}
@@ -372,7 +381,7 @@ export default function Layout({ session, children, userRole }) {
             ))
             ) : (
               <div className="px-3 py-2 text-xs text-slate-300 italic">海外拠点はまだありません</div>
-            )}
+            ))}
 
             {userRole === 'admin' && archivedLocations.length > 0 && (
               <div className="mt-3">
