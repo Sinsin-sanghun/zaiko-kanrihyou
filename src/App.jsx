@@ -95,7 +95,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/location/:id" element={<InventoryPage userRole={userRole} session={session} />} />
           <Route path="/todo" element={<TodoPage session={session} />} />
-          <Route path="/user-management" element={<UserManagementPage />} />
+          <Route path="/user-management" element={<UserManagementPage session={session} />} />
           <Route path="/approvals" element={<ApprovalPage session={session} />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
