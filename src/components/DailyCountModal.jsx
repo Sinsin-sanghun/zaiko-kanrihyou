@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
+import { insertEditLog, confirmEmptyComment } from '../lib/editLogger'
 
-export default function DailyCountModal({ item, onClose, onUpdated }) {
+export default function DailyCountModal({ item, onClose, onUpdated, session }) {
   const [counts, setCounts] = useState([])
+  const [editLogs, setEditLogs] = useState({})
   const [loading, setLoading] = useState(true)
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0])
   const [newValue, setNewValue] = useState('')
+  const [editComment, setEditComment] = useState('')
   const [saving, setSaving] = useState(false)
   const [currentQty, setCurrentQty] = useState(item.quantity ?? 0)
 
@@ -22,6 +25,26 @@ export default function DailyCountModal({ item, onClose, onUpdated }) {
       .order('count_date', { ascending: false })
       .limit(60)
     setCounts(data || [])
+
+    // 棚卸記録に関連する編集ログを取得
+    const { data: logs } = await supabase
+      .from('edit_logs')
+      .select('*')
+      .eq('table_name', 'daily_counts')
+      .like('record_id', item.id + '%')
+      .order('created_at', { ascending: false })
+
+    // record_idごとにログをマッピング
+    const logMap = {}
+    if (logs) {
+      logs.forEach((log) => {
+        if (!logMap[log.record_id]) {
+          logMap[log.record_id] = []
+        }
+        logMap[log.record_id].push(log)
+      })
+    }
+    setEditLogs(logMap)
     setLoading(false)
   }
 
@@ -30,6 +53,9 @@ export default function DailyCountModal({ item, onClose, onUpdated }) {
     if (!newDate || newValue === '') return
     const delta = Number(newValue)
     if (isNaN(delta)) return
+
+    // コメント未記入チェック
+    if (!confirmEmptyComment(editComment)) return
 
     setSaving(true)
 
@@ -57,6 +83,16 @@ export default function DailyCountModal({ item, onClose, onUpdated }) {
       })
       .eq('id', item.id)
 
+    // 編集ログを記録
+    await insertEditLog({
+      tableName: 'daily_counts',
+      recordId: item.id + '_' + newDate,
+      actionType: 'upsert',
+      userEmail: session?.user?.email,
+      comment: editComment.trim(),
+      details: { item_name: item.product_name, date: newDate, delta: delta, qty_before: currentQty, qty_after: newQty },
+    })
+
     setSaving(false)
 
     if (updateError) {
@@ -65,6 +101,7 @@ export default function DailyCountModal({ item, onClose, onUpdated }) {
       const sign = delta >= 0 ? '+' : ''
       toast.success('記録しました (' + sign + delta + ' \u2192 在庫: ' + newQty + ')')
       setNewValue('')
+      setEditComment('')
       setCurrentQty(newQty)
       loadCounts()
       if (onUpdated) onUpdated()
@@ -74,11 +111,15 @@ export default function DailyCountModal({ item, onClose, onUpdated }) {
   const handleDeleteCount = async (count) => {
     if (!confirm('この記録 (数量: ' + count.count_value + ') を削除し、在庫数を元に戻しますか？')) return
 
+    const deleteComment = prompt('削除コメント（任意）:') ?? ''
+    if (deleteComment === '' && !confirmEmptyComment('')) return
+
     const reverseDelta = -(count.count_value ?? 0)
     const newQty = currentQty + reverseDelta
     const unitPrice = item.unit_price ?? 0
 
     const { error: delError } = await supabase.from('daily_counts').delete().eq('id', count.id)
+
     if (delError) {
       toast.error('削除に失敗しました')
       return
@@ -92,6 +133,16 @@ export default function DailyCountModal({ item, onClose, onUpdated }) {
       })
       .eq('id', item.id)
 
+    // 編集ログを記録
+    await insertEditLog({
+      tableName: 'daily_counts',
+      recordId: item.id + '_' + count.count_date,
+      actionType: 'delete',
+      userEmail: session?.user?.email,
+      comment: deleteComment.trim(),
+      details: { item_name: item.product_name, date: count.count_date, deleted_value: count.count_value, qty_before: currentQty, qty_after: newQty },
+    })
+
     toast.success('記録を削除し、在庫数を ' + newQty + ' に戻しました')
     setCurrentQty(newQty)
     loadCounts()
@@ -104,9 +155,23 @@ export default function DailyCountModal({ item, onClose, onUpdated }) {
     return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0') + ' (' + days[d.getDay()] + ')'
   }
 
+  const formatLogInline = (log) => {
+    const d = new Date(log.created_at)
+    const days = ['日', '月', '火', '水', '木', '金', '土']
+    const dayName = days[d.getDay()]
+    const dateStr = d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0')
+    const delta = log.details?.delta
+    const sign = delta >= 0 ? '+' : ''
+    const deltaStr = delta !== undefined ? sign + delta : log.action_type
+    return deltaStr + ' / ' + dayName + ' / ' + dateStr + (log.comment ? ' / ' + log.comment : '')
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden m-4 flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden m-4 flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
           <div>
             <h2 className="text-lg font-bold text-slate-800">棚卸履歴</h2>
@@ -120,22 +185,46 @@ export default function DailyCountModal({ item, onClose, onUpdated }) {
           </button>
         </div>
 
-        <form onSubmit={handleAdd} className="px-6 py-3 border-b border-slate-100 bg-slate-50 flex gap-2 items-end flex-shrink-0">
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-slate-600 mb-1">日付</label>
-            <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)}
-              className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+        <form onSubmit={handleAdd} className="px-6 py-3 border-b border-slate-100 bg-slate-50 flex-shrink-0">
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-slate-600 mb-1">日付</label>
+              <input
+                type="date"
+                value={newDate}
+                onChange={(e) => setNewDate(e.target.value)}
+                className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+            <div className="w-28">
+              <label className="block text-xs font-medium text-slate-600 mb-1">増減数</label>
+              <input
+                type="number"
+                step="any"
+                value={newValue}
+                onChange={(e) => setNewValue(e.target.value)}
+                placeholder="例: 50, -20"
+                className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition disabled:opacity-50"
+            >
+              記録
+            </button>
           </div>
-          <div className="w-28">
-            <label className="block text-xs font-medium text-slate-600 mb-1">増減数</label>
-            <input type="number" step="any" value={newValue} onChange={(e) => setNewValue(e.target.value)}
-              placeholder="例: 50, -20"
-              className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+          {/* 編集コメント欄 */}
+          <div className="mt-2">
+            <input
+              type="text"
+              value={editComment}
+              onChange={(e) => setEditComment(e.target.value)}
+              placeholder="コメント（任意）: 変更理由やメモ..."
+              className="w-full px-2 py-1.5 border border-amber-300 rounded text-sm focus:ring-2 focus:ring-amber-500 outline-none bg-amber-50"
+            />
           </div>
-          <button type="submit" disabled={saving}
-            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition disabled:opacity-50">
-            記録
-          </button>
         </form>
 
         <div className="flex-1 overflow-y-auto">
@@ -150,27 +239,47 @@ export default function DailyCountModal({ item, onClose, onUpdated }) {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 sticky top-0">
                   <th className="text-left px-6 py-2 text-slate-600 font-medium">日付</th>
-                  <th className="text-right px-6 py-2 text-slate-600 font-medium">増減数</th>
+                  <th className="text-right px-4 py-2 text-slate-600 font-medium">増減数</th>
+                  <th className="text-left px-4 py-2 text-slate-600 font-medium">編集ログ</th>
                   <th className="w-10"></th>
                 </tr>
               </thead>
               <tbody>
-                {counts.map((c) => (
-                  <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50">
-                    <td className="px-6 py-2 text-slate-700">{formatDate(c.count_date)}</td>
-                    <td className={'px-6 py-2 text-right font-medium ' + (c.count_value >= 0 ? 'text-blue-700' : 'text-red-600')}>
-                      {c.count_value >= 0 ? '+' : ''}{new Intl.NumberFormat('ja-JP').format(c.count_value)}
-                    </td>
-                    <td className="pr-4">
-                      <button onClick={() => handleDeleteCount(c)}
-                        className="p-1 text-slate-300 hover:text-red-500 transition">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {counts.map((c) => {
+                  const logKey = item.id + '_' + c.count_date
+                  const relatedLogs = editLogs[logKey] || []
+                  return (
+                    <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50">
+                      <td className="px-6 py-2 text-slate-700">{formatDate(c.count_date)}</td>
+                      <td className={'px-4 py-2 text-right font-medium ' + (c.count_value >= 0 ? 'text-blue-700' : 'text-red-600')}>
+                        {c.count_value >= 0 ? '+' : ''}{new Intl.NumberFormat('ja-JP').format(c.count_value)}
+                      </td>
+                      <td className="px-4 py-2">
+                        {relatedLogs.length > 0 ? (
+                          <div className="text-xs text-slate-500 space-y-0.5">
+                            {relatedLogs.slice(0, 2).map((log, i) => (
+                              <div key={i} className="bg-amber-50 px-1.5 py-0.5 rounded text-amber-700">
+                                {formatLogInline(log)}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-300">-</span>
+                        )}
+                      </td>
+                      <td className="pr-4">
+                        <button
+                          onClick={() => handleDeleteCount(c)}
+                          className="p-1 text-slate-300 hover:text-red-500 transition"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}
