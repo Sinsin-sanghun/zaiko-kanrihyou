@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
+import { insertEditLog, confirmEmptyComment } from '../lib/editLogger'
 
-export default function UserManagementPage() {
+export default function UserManagementPage({ session }) {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [newEmail, setNewEmail] = useState('')
@@ -13,6 +14,7 @@ export default function UserManagementPage() {
       .from('user_roles')
       .select('*')
       .order('created_at', { ascending: true })
+
     if (error) {
       toast.error('ユーザー一覧の取得に失敗しました')
     } else {
@@ -31,9 +33,15 @@ export default function UserManagementPage() {
       toast.error('@shirokumapower.com のメールアドレスのみ追加できます')
       return
     }
-    const { error } = await supabase
+
+    const addComment = prompt('追加コメント（任意）:') ?? ''
+    if (addComment === '' && !confirmEmptyComment('')) return
+
+    const { data, error } = await supabase
       .from('user_roles')
       .insert({ email: newEmail, role: newRole })
+      .select()
+
     if (error) {
       if (error.code === '23505') {
         toast.error('このメールアドレスは既に登録されています')
@@ -41,6 +49,15 @@ export default function UserManagementPage() {
         toast.error('ユーザーの追加に失敗しました')
       }
     } else {
+      // 編集ログを記録
+      await insertEditLog({
+        tableName: 'user_roles',
+        recordId: data?.[0]?.id || newEmail,
+        actionType: 'create',
+        userEmail: session?.user?.email,
+        comment: addComment.trim(),
+        details: { added_email: newEmail, role: newRole },
+      })
       toast.success('ユーザーを追加しました')
       setNewEmail('')
       setNewRole('viewer')
@@ -49,13 +66,29 @@ export default function UserManagementPage() {
   }
 
   const handleRoleChange = async (id, email, role) => {
+    const currentUser = users.find((u) => u.id === id)
+    const oldRole = currentUser?.role
+
+    const changeComment = prompt('権限変更コメント（任意）:') ?? ''
+    if (changeComment === '' && !confirmEmptyComment('')) return
+
     const { error } = await supabase
       .from('user_roles')
       .update({ role })
       .eq('id', id)
+
     if (error) {
       toast.error('権限の変更に失敗しました')
     } else {
+      // 編集ログを記録
+      await insertEditLog({
+        tableName: 'user_roles',
+        recordId: id,
+        actionType: 'update',
+        userEmail: session?.user?.email,
+        comment: changeComment.trim(),
+        details: { email: email, old_role: oldRole, new_role: role },
+      })
       toast.success(email + ' の権限を変更しました')
       fetchUsers()
     }
@@ -63,13 +96,27 @@ export default function UserManagementPage() {
 
   const handleDeleteUser = async (id, email) => {
     if (!confirm(email + ' を削除しますか？')) return
+
+    const deleteComment = prompt('削除コメント（任意）:') ?? ''
+    if (deleteComment === '' && !confirmEmptyComment('')) return
+
     const { error } = await supabase
       .from('user_roles')
       .delete()
       .eq('id', id)
+
     if (error) {
       toast.error('ユーザーの削除に失敗しました')
     } else {
+      // 編集ログを記録
+      await insertEditLog({
+        tableName: 'user_roles',
+        recordId: id,
+        actionType: 'delete',
+        userEmail: session?.user?.email,
+        comment: deleteComment.trim(),
+        details: { deleted_email: email },
+      })
       toast.success(email + ' を削除しました')
       fetchUsers()
     }
@@ -199,4 +246,4 @@ export default function UserManagementPage() {
       </div>
     </div>
   )
-      }
+}
