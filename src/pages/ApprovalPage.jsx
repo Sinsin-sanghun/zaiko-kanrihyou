@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
+import { insertEditLog, confirmEmptyComment } from '../lib/editLogger'
 
 export default function ApprovalPage({ session }) {
   const [requests, setRequests] = useState([])
@@ -12,9 +13,11 @@ export default function ApprovalPage({ session }) {
       .from('approval_requests')
       .select('*')
       .order('created_at', { ascending: false })
+
     if (filter !== 'all') {
       query = query.eq('status', filter)
     }
+
     const { data, error } = await query
     if (error) {
       toast.error('申請一覧の取得に失敗しました')
@@ -30,25 +33,50 @@ export default function ApprovalPage({ session }) {
   }, [fetchRequests])
 
   const handleApprove = async (req) => {
+    const approveComment = prompt('承認コメント（任意）:') ?? ''
+    if (approveComment === '' && !confirmEmptyComment('')) return
+
     try {
       if (req.type === 'delete_item') {
         const { error: delError } = await supabase
           .from('inventory_items')
           .delete()
           .eq('id', req.target_id)
+
         if (delError) {
           toast.error('品目の削除に失敗しました')
           return
         }
+
+        // 品目削除の編集ログ
+        await insertEditLog({
+          tableName: 'inventory_items',
+          recordId: req.target_id,
+          actionType: 'delete',
+          userEmail: session?.user?.email,
+          comment: approveComment.trim(),
+          details: { approved_request: req.id, target_name: req.target_name, type: 'delete_item' },
+        })
       } else if (req.type === 'rename_location') {
         const { error: renError } = await supabase
           .from('locations')
           .update({ name: req.new_value })
           .eq('id', req.target_id)
+
         if (renError) {
           toast.error('拠点名の変更に失敗しました')
           return
         }
+
+        // 拠点名変更の編集ログ
+        await insertEditLog({
+          tableName: 'locations',
+          recordId: req.target_id,
+          actionType: 'update',
+          userEmail: session?.user?.email,
+          comment: approveComment.trim(),
+          details: { approved_request: req.id, new_name: req.new_value, type: 'rename_location' },
+        })
       }
 
       await supabase
@@ -60,6 +88,16 @@ export default function ApprovalPage({ session }) {
         })
         .eq('id', req.id)
 
+      // 承認操作自体のログ
+      await insertEditLog({
+        tableName: 'approval_requests',
+        recordId: req.id,
+        actionType: 'approve',
+        userEmail: session?.user?.email,
+        comment: approveComment.trim(),
+        details: { request_type: req.type, target_name: req.target_name },
+      })
+
       toast.success('承認しました')
       fetchRequests()
     } catch (e) {
@@ -68,6 +106,9 @@ export default function ApprovalPage({ session }) {
   }
 
   const handleReject = async (req) => {
+    const rejectComment = prompt('却下コメント（任意）:') ?? ''
+    if (rejectComment === '' && !confirmEmptyComment('')) return
+
     await supabase
       .from('approval_requests')
       .update({
@@ -76,6 +117,17 @@ export default function ApprovalPage({ session }) {
         reviewed_at: new Date().toISOString()
       })
       .eq('id', req.id)
+
+    // 却下の編集ログ
+    await insertEditLog({
+      tableName: 'approval_requests',
+      recordId: req.id,
+      actionType: 'reject',
+      userEmail: session?.user?.email,
+      comment: rejectComment.trim(),
+      details: { request_type: req.type, target_name: req.target_name },
+    })
+
     toast.success('却下しました')
     fetchRequests()
   }
@@ -99,7 +151,7 @@ export default function ApprovalPage({ session }) {
   const statusLabel = (status) => {
     switch (status) {
       case 'pending': return '承認待ち'
-      case 'approved': return '承誎済み'
+      case 'approved': return '承認済み'
       case 'rejected': return '却下済み'
       default: return status
     }
@@ -129,7 +181,7 @@ export default function ApprovalPage({ session }) {
       <div className="flex gap-2 mb-4">
         {[
           { key: 'pending', label: '承認待ち' },
-          { key: 'approved', label: '承認済み' },
+          { key: 'approved', label: '承誎済み' },
           { key: 'rejected', label: '却下済み' },
           { key: 'all', label: 'すべて' },
         ].map((f) => (
