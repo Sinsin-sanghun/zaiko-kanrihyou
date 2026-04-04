@@ -163,7 +163,8 @@ export default function DailyCountModal({ item, onClose, onUpdated, session }) {
     const delta = log.details?.delta
     const sign = delta >= 0 ? '+' : ''
     const deltaStr = delta !== undefined ? sign + delta : log.action_type
-    return deltaStr + ' / ' + dayName + ' / ' + dateStr + (log.comment ? ' / ' + log.comment : '')
+    const editor = log.user_email ? log.user_email.split('@')[0] : '不明'
+    return deltaStr + ' / ' + editor + ' / ' + dayName + ' / ' + dateStr + (log.comment ? ' / ' + log.comment : '')
   }
 
   return (
