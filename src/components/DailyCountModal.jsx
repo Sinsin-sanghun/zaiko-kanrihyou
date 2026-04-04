@@ -160,11 +160,19 @@ export default function DailyCountModal({ item, onClose, onUpdated, session }) {
     const days = ['日', '月', '火', '水', '木', '金', '土']
     const dayName = days[d.getDay()]
     const dateStr = d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0')
+    const timeStr = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
     const delta = log.details?.delta
-    const sign = delta >= 0 ? '+' : ''
-    const deltaStr = delta !== undefined ? sign + delta : log.action_type
+    const isDelete = log.action_type === 'delete'
+    let actionStr
+    if (isDelete) {
+      const delVal = log.details?.deleted_value
+      actionStr = '削除' + (delVal !== undefined ? '(' + (delVal >= 0 ? '+' : '') + delVal + ')' : '')
+    } else {
+      const sign = delta >= 0 ? '+' : ''
+      actionStr = delta !== undefined ? sign + delta : log.action_type
+    }
     const editor = log.user_email ? log.user_email.split('@')[0] : '不明'
-    return deltaStr + ' / ' + editor + ' / ' + dayName + ' / ' + dateStr + (log.comment ? ' / ' + log.comment : '')
+    return actionStr + ' / ' + editor + ' / ' + dayName + ' / ' + dateStr + ' ' + timeStr + (log.comment ? ' / ' + log.comment : '')
   }
 
   return (
