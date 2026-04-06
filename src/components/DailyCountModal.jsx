@@ -241,56 +241,71 @@ export default function DailyCountModal({ item, onClose, onUpdated, session }) {
             <div className="flex items-center justify-center h-32">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
             </div>
-          ) : counts.length === 0 ? (
-            <div className="text-center text-slate-400 py-12 text-sm">棚卸記録がありません</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 sticky top-0">
-                  <th className="text-left px-6 py-2 text-slate-600 font-medium">日付</th>
-                  <th className="text-right px-4 py-2 text-slate-600 font-medium">増減数</th>
-                  <th className="text-left px-4 py-2 text-slate-600 font-medium">編集ログ</th>
-                  <th className="w-10"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {counts.map((c) => {
-                  const logKey = item.id + '_' + c.count_date
-                  const relatedLogs = (editLogs[logKey] || []).filter(log => log.action_type !== 'delete')
-                  return (
-                    <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50">
-                      <td className="px-6 py-2 text-slate-700">{formatDate(c.count_date)}</td>
-                      <td className={'px-4 py-2 text-right font-medium ' + (c.count_value >= 0 ? 'text-blue-700' : 'text-red-600')}>
-                        {c.count_value >= 0 ? '+' : ''}{new Intl.NumberFormat('ja-JP').format(c.count_value)}
-                      </td>
-                      <td className="px-4 py-2">
-                        {relatedLogs.length > 0 ? (
-                          <div className="text-xs text-slate-500 space-y-0.5">
-                            {relatedLogs.slice(0, 2).map((log, i) => (
-                              <div key={i} className="bg-amber-50 px-1.5 py-0.5 rounded text-amber-700">
-                                {formatLogInline(log)}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-300">-</span>
-                        )}
-                      </td>
-                      <td className="pr-4">
-                        <button
-                          onClick={() => handleDeleteCount(c)}
-                          className="p-1 text-slate-300 hover:text-red-500 transition"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          ) : (() => {
+            const allEntries = []
+            counts.forEach(c => {
+              const logKey = item.id + '_' + c.count_date
+              const logs = (editLogs[logKey] || []).filter(log => log.action_type !== 'delete')
+              if (logs.length > 0) {
+                logs.forEach(log => allEntries.push({ log, count: c }))
+              } else {
+                allEntries.push({ log: null, count: c })
+              }
+            })
+            allEntries.sort((a, b) => {
+              const da = a.log ? new Date(a.log.created_at) : new Date(a.count.count_date)
+              const db = b.log ? new Date(b.log.created_at) : new Date(b.count.count_date)
+              return db - da
+            })
+            return allEntries.length === 0 ? (
+              <div className="text-center text-slate-400 py-12 text-sm">棚卸記録がありません</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 sticky top-0">
+                    <th className="text-left px-4 py-2 text-slate-600 font-medium">日時</th>
+                    <th className="text-right px-3 py-2 text-slate-600 font-medium">増減数</th>
+                    <th className="text-left px-3 py-2 text-slate-600 font-medium">編集者</th>
+                    <th className="text-left px-3 py-2 text-slate-600 font-medium">コメント</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allEntries.map((entry, idx) => {
+                    const { log, count: c } = entry
+                    const d = log ? new Date(log.created_at) : null
+                    const delta = log && log.details?.delta !== undefined ? log.details.delta : c.count_value
+                    const dateStr = d
+                      ? d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0')
+                      : formatDate(c.count_date)
+                    const editor = log && log.user_email ? log.user_email.split('@')[0] : '-'
+                    const comment = log && log.comment ? log.comment : ''
+                    return (
+                      <tr key={log ? log.id : c.id} className="border-b border-slate-50 hover:bg-slate-50">
+                        <td className="px-4 py-2 text-slate-700 text-xs whitespace-nowrap">{dateStr}</td>
+                        <td className={'px-3 py-2 text-right font-medium ' + (delta >= 0 ? 'text-blue-700' : 'text-red-600')}>
+                          {delta >= 0 ? '+' : ''}{new Intl.NumberFormat('ja-JP').format(delta)}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-600">{editor}</td>
+                        <td className="px-3 py-2 text-xs text-slate-500 max-w-[120px] truncate">{comment}</td>
+                        <td className="pr-2">
+                          <button
+                            onClick={() => handleDeleteCount(c)}
+                            className="p-1 text-slate-300 hover:text-red-500 transition"
+                            title="削除"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )
+          })()}
           )}
         </div>
       </div>
