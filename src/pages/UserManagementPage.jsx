@@ -7,7 +7,7 @@ export default function UserManagementPage({ session }) {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [newEmail, setNewEmail] = useState('')
-  const [newRole, setNewRole] = useState('viewer')
+  const [newRole, setNewRole] = useState('editor')
 
   const fetchUsers = async () => {
     const { data, error } = await supabase
@@ -60,7 +60,7 @@ export default function UserManagementPage({ session }) {
       })
       toast.success('ユーザーを追加しました')
       setNewEmail('')
-      setNewRole('viewer')
+      setNewRole('editor')
       fetchUsers()
     }
   }
@@ -173,7 +173,6 @@ export default function UserManagementPage({ session }) {
               onChange={(e) => setNewRole(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="viewer">閲覧者</option>
               <option value="editor">編集者</option>
               <option value="admin">管理者</option>
             </select>
@@ -236,12 +235,17 @@ export default function UserManagementPage({ session }) {
         </div>
       </div>
 
-      <div className="mt-6 bg-slate-50 rounded-lg p-4 text-sm text-slate-600">
+      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800 mb-4">
+        <p>💡 <span className="font-semibold">@shirokumapower.com</span> のアカウントでログインした社員は、自動的に<span className="font-semibold">閲覧者</span>としてアクセスできます。手動での登録は不要です。</p>
+        <p className="mt-1 text-blue-600">ここでは<span className="font-semibold">編集者・管理者</span>への昇格が必要なユーザーのみ登録してください。</p>
+      </div>
+
+      <div className="bg-slate-50 rounded-lg p-4 text-sm text-slate-600">
         <h3 className="font-semibold mb-2">権限の説明</h3>
         <ul className="space-y-1">
           <li><span className="font-medium text-red-700">管理者 (admin)</span>：全操作可能 + ユーザー管理</li>
           <li><span className="font-medium text-blue-700">編集者 (editor)</span>：データの追加・編集可能（削除不可）</li>
-          <li><span className="font-medium text-gray-700">閲覧者 (viewer)</span>：閲覧のみ</li>
+          <li><span className="font-medium text-gray-700">閲覧者 (viewer)</span>：閲覧のみ（@shirokumapower.com の社員は自動付与）</li>
         </ul>
       </div>
     </div>
