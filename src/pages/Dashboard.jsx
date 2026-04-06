@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import DashboardCharts from '../components/DashboardCharts'
+import OutOfStockAlert from '../components/OutOfStockAlert'
 
 export default function Dashboard() {
   const [locations, setLocations] = useState([])
@@ -54,24 +56,32 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">ダッシュボード</h1>
+      <h1 className="text-2xl font-bold text-slate-800 mb-6">Dashboard</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="text-sm text-slate-500 mb-1">拠点数</div>
+          <div className="text-sm text-slate-500 mb-1">Sites</div>
           <div className="text-3xl font-bold text-slate-800">{locations.length}</div>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="text-sm text-slate-500 mb-1">総品目数</div>
+          <div className="text-sm text-slate-500 mb-1">Total Items</div>
           <div className="text-3xl font-bold text-slate-800">{totalItems}</div>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="text-sm text-slate-500 mb-1">総在庫金額</div>
-          <div className="text-2xl font-bold text-slate-800">{formatCurrency(totalValue)}</div>
+          <div className="text-sm text-slate-500 mb-1">Total Value</div>
+          <div className="text-3xl font-bold text-slate-800">{formatCurrency(totalValue)}</div>
         </div>
       </div>
 
-      <h2 className="text-lg font-semibold text-slate-700 mb-4">拠点一覧</h2>
+      <div className="mb-8">
+        <DashboardCharts />
+      </div>
+
+      <div className="mb-8">
+        <OutOfStockAlert />
+      </div>
+
+      <h2 className="text-lg font-semibold text-slate-700 mb-4">Sites</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {locations.map((loc) => {
           const s = stats[loc.id] || { itemCount: 0, totalValue: 0 }
@@ -84,16 +94,10 @@ export default function Dashboard() {
               <h3 className="font-semibold text-slate-800 group-hover:text-blue-600 transition mb-2">
                 {loc.name}
               </h3>
-              {loc.description && (
-                <p className="text-sm text-slate-500 mb-3">{loc.description}</p>
-              )}
-              <div className="flex gap-4 text-sm">
-                <span className="text-slate-600">
-                  <span className="font-medium">{s.itemCount}</span> 品目
-                </span>
-                <span className="text-slate-600">
-                  {formatCurrency(s.totalValue)}
-                </span>
+              <div className="text-sm text-slate-500">
+                <span>{s.itemCount} items</span>
+                <span className="mx-2">|</span>
+                <span>{formatCurrency(s.totalValue)}</span>
               </div>
             </Link>
           )
