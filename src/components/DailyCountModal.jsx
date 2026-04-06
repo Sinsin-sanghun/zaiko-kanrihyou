@@ -6,6 +6,7 @@ import { insertEditLog, confirmEmptyComment } from '../lib/editLogger'
 export default function DailyCountModal({ item, onClose, onUpdated, session }) {
   const [counts, setCounts] = useState([])
   const [editLogs, setEditLogs] = useState({})
+  const [itemEditLogs, setItemEditLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0])
   const [newValue, setNewValue] = useState('')
@@ -45,6 +46,16 @@ export default function DailyCountModal({ item, onClose, onUpdated, session }) {
       })
     }
     setEditLogs(logMap)
+
+    // 品目編集ログを取得
+    const { data: itemLogs } = await supabase
+      .from('edit_logs')
+      .select('*')
+      .eq('table_name', 'inventory_items')
+      .eq('record_id', String(item.id))
+      .order('created_at', { ascending: false })
+    setItemEditLogs(itemLogs || [])
+
     setLoading(false)
   }
 
@@ -155,10 +166,8 @@ export default function DailyCountModal({ item, onClose, onUpdated, session }) {
     return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0') + ' (' + days[d.getDay()] + ')'
   }
 
-  const formatLogInline = (log) => {
+  const parseLog = (log) => {
     const d = new Date(log.created_at)
-    const days = ['日', '月', '火', '水', '木', '金', '土']
-    const dayName = days[d.getDay()]
     const dateStr = d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0')
     const timeStr = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
     const delta = log.details?.delta
@@ -172,13 +181,13 @@ export default function DailyCountModal({ item, onClose, onUpdated, session }) {
       actionStr = delta !== undefined ? sign + delta : log.action_type
     }
     const editor = log.user_email ? log.user_email.split('@')[0] : '不明'
-    return actionStr + ' / ' + editor + ' / ' + dayName + ' / ' + dateStr + ' ' + timeStr + (log.comment ? ' / ' + log.comment : '')
+    return { actionStr, editor, dateStr, timeStr, comment: log.comment, isDelete }
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden m-4 flex flex-col"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden m-4 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
@@ -242,14 +251,32 @@ export default function DailyCountModal({ item, onClose, onUpdated, session }) {
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
             </div>
           ) : (() => {
+            const fieldLabels = { product_name: '品名', owner: '持ち主', supplier: '仕入先', manufacturer: 'メーカー', model: '型式', location_detail: '場所詳細', unit: '単位', unit_price: '単価', remarks: '備考' }
+            const getChanges = (log) => {
+              if (!log.details?.before || !log.details?.after) return []
+              const changes = []
+              Object.keys(fieldLabels).forEach(key => {
+                const bVal = log.details.before[key] ?? ''
+                const aVal = log.details.after[key] ?? ''
+                if (String(bVal) !== String(aVal)) {
+                  changes.push({ field: fieldLabels[key], before: bVal || '(空)', after: aVal || '(空)' })
+                }
+              })
+              return changes
+            }
             const allEntries = []
             counts.forEach(c => {
               const logKey = item.id + '_' + c.count_date
               const logs = (editLogs[logKey] || []).filter(log => log.action_type !== 'delete')
               if (logs.length > 0) {
-                logs.forEach(log => allEntries.push({ log, count: c }))
+                logs.forEach(log => allEntries.push({ type: 'count', log, count: c }))
               } else {
-                allEntries.push({ log: null, count: c })
+                allEntries.push({ type: 'count', log: null, count: c })
+              }
+            })
+            itemEditLogs.forEach(log => {
+              if (log.action_type === 'update' || log.action_type === 'create') {
+                allEntries.push({ type: 'item_edit', log, count: null })
               }
             })
             allEntries.sort((a, b) => {
@@ -258,7 +285,7 @@ export default function DailyCountModal({ item, onClose, onUpdated, session }) {
               return db - da
             })
             return allEntries.length === 0 ? (
-              <div className="text-center text-slate-400 py-12 text-sm">棚卸記録がありません</div>
+              <div className="text-center text-slate-400 py-12 text-sm">記録がありません</div>
             ) : (
               <table className="w-full text-sm">
                 <thead>
@@ -272,6 +299,40 @@ export default function DailyCountModal({ item, onClose, onUpdated, session }) {
                 </thead>
                 <tbody>
                   {allEntries.map((entry, idx) => {
+                    if (entry.type === 'item_edit') {
+                      const log = entry.log
+                      const d = new Date(log.created_at)
+                      const dateStr = d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0')
+                      const editor = log.user_email ? log.user_email.split('@')[0] : '-'
+                      const changes = getChanges(log)
+                      const isCreate = log.action_type === 'create'
+                      const changeText = isCreate ? '新規作成' : changes.map(c => c.field + ': ' + c.before + ' → ' + c.after).join(', ')
+                      const commentParts = []
+                      if (changeText) commentParts.push(changeText)
+                      if (log.comment) commentParts.push(log.comment)
+                      return (
+                        <tr key={'item_' + log.id} className="border-b border-slate-50 hover:bg-amber-50/50 bg-amber-50/30">
+                          <td className="px-4 py-2 text-slate-700 text-xs whitespace-nowrap">{dateStr}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">{isCreate ? '新規' : '品目変更'}</span>
+                          </td>
+                          <td className="px-3 py-2 text-xs text-slate-600">{editor}</td>
+                          <td className="px-3 py-2 text-xs text-amber-800 max-w-[200px]" title={commentParts.join(' | ')}>
+                            {changes.length > 0 && !isCreate ? (
+                              <div>
+                                {changes.map((c, ci) => (
+                                  <div key={ci} className="truncate"><span className="font-medium">{c.field}</span>: {c.before} → {c.after}</div>
+                                ))}
+                                {log.comment && <div className="text-slate-500 mt-0.5">{log.comment}</div>}
+                              </div>
+                            ) : (
+                              <span>{commentParts.join(' | ') || '-'}</span>
+                            )}
+                          </td>
+                          <td className="pr-2"></td>
+                        </tr>
+                      )
+                    }
                     const { log, count: c } = entry
                     const d = log ? new Date(log.created_at) : null
                     const delta = log && log.details?.delta !== undefined ? log.details.delta : c.count_value
@@ -289,11 +350,7 @@ export default function DailyCountModal({ item, onClose, onUpdated, session }) {
                         <td className="px-3 py-2 text-xs text-slate-600">{editor}</td>
                         <td className="px-3 py-2 text-xs text-slate-500 max-w-[120px] truncate">{comment}</td>
                         <td className="pr-2">
-                          <button
-                            onClick={() => handleDeleteCount(c)}
-                            className="p-1 text-slate-300 hover:text-red-500 transition"
-                            title="削除"
-                          >
+                          <button onClick={() => handleDeleteCount(c)} className="p-1 text-slate-300 hover:text-red-500 transition" title="削除">
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
@@ -306,7 +363,6 @@ export default function DailyCountModal({ item, onClose, onUpdated, session }) {
               </table>
             )
           })()}
-          )}
         </div>
       </div>
     </div>
