@@ -80,7 +80,7 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved, sess
         userEmail: session?.user?.email,
         comment: editComment.trim(),
         details: isEdit
-          ? { before: { product_name: item.product_name, owner: item.owner, supplier: item.supplier, unit_price: item.unit_price }, after: payload }
+          ? { before: { product_name: item.product_name, owner: item.owner, supplier: item.supplier, manufacturer: item.manufacturer, model: item.model, location_detail: item.location_detail, unit: item.unit, unit_price: item.unit_price, remarks: item.remarks }, after: payload }
           : { created: payload },
       })
     }
@@ -126,7 +126,7 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved, sess
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">持ち丳</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">持ち主</label>
               <input
                 type="text"
                 value={form.owner}
