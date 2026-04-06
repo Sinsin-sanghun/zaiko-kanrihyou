@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import { insertEditLog, confirmEmptyComment } from '../lib/editLogger'
@@ -20,6 +20,39 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved, sess
   })
   const [editComment, setEditComment] = useState('')
   const [saving, setSaving] = useState(false)
+  const [editLogs, setEditLogs] = useState([])
+  const [logsLoading, setLogsLoading] = useState(false)
+
+  useEffect(() => {
+    if (isEdit && item?.id) {
+      setLogsLoading(true)
+      supabase
+        .from('edit_logs')
+        .select('*')
+        .eq('table_name', 'inventory_items')
+        .eq('record_id', String(item.id))
+        .order('created_at', { ascending: false })
+        .then(({ data }) => {
+          setEditLogs(data || [])
+          setLogsLoading(false)
+        })
+    }
+  }, [item?.id])
+
+  const fieldLabels = { product_name: '品名', owner: '持ち主', supplier: '仕入先', manufacturer: 'メーカー', model: '型式', location_detail: '場所詳細', unit: '単位', unit_price: '単価', remarks: '備考' }
+
+  const getChanges = (log) => {
+    if (!log.details?.before || !log.details?.after) return []
+    const changes = []
+    Object.keys(fieldLabels).forEach(key => {
+      const bVal = log.details.before[key] ?? ''
+      const aVal = log.details.after[key] ?? ''
+      if (String(bVal) !== String(aVal)) {
+        changes.push({ field: fieldLabels[key], before: bVal || '(空)', after: aVal || '(空)' })
+      }
+    })
+    return changes
+  }
 
   const handleChange = (field, value) => {
     setForm({ ...form, [field]: value })
@@ -246,6 +279,57 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved, sess
             </button>
           </div>
         </form>
+        {isEdit && (
+          <div className="px-6 pb-4 border-t border-slate-200 max-h-[35vh] overflow-y-auto">
+            <h3 className="text-sm font-bold text-slate-700 pt-3 pb-2 sticky top-0 bg-white">編集履歴</h3>
+            {logsLoading ? (
+              <div className="flex items-center justify-center h-16">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+              </div>
+            ) : editLogs.length === 0 ? (
+              <p className="text-xs text-slate-400 py-3">編集履歴はありません</p>
+            ) : (
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left py-1.5 px-1 text-slate-500 font-medium">日時</th>
+                    <th className="text-left py-1.5 px-1 text-slate-500 font-medium">編集者</th>
+                    <th className="text-left py-1.5 px-1 text-slate-500 font-medium">変更内容</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {editLogs.map(log => {
+                    const d = new Date(log.created_at)
+                    const dateStr = d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0')
+                    const editor = log.user_email ? log.user_email.split('@')[0] : '-'
+                    const isCreate = log.action_type === 'create'
+                    const changes = getChanges(log)
+                    return (
+                      <tr key={log.id} className="border-b border-slate-50 hover:bg-slate-50">
+                        <td className="py-1.5 px-1 text-slate-600 whitespace-nowrap align-top">{dateStr}</td>
+                        <td className="py-1.5 px-1 text-slate-600 align-top">{editor}</td>
+                        <td className="py-1.5 px-1 text-slate-700">
+                          {isCreate ? (
+                            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-green-100 text-green-800">新規作成</span>
+                          ) : changes.length > 0 ? (
+                            <div>
+                              {changes.map((c, ci) => (
+                                <div key={ci}><span className="font-medium text-amber-700">{c.field}</span>: <span className="text-slate-400">{c.before}</span> → <span className="text-blue-700">{c.after}</span></div>
+                              ))}
+                              {log.comment && <div className="text-slate-400 mt-0.5">{log.comment}</div>}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">{log.comment || '-'}</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
