@@ -252,8 +252,6 @@ export default function DailyCountModal({ item, onClose, onUpdated, session }) {
                 allEntries.push({ type: 'count', log: null, count: c })
               }
             })
-              }
-            })
             allEntries.sort((a, b) => {
               const da = a.log ? new Date(a.log.created_at) : new Date(a.count.count_date)
               const db = b.log ? new Date(b.log.created_at) : new Date(b.count.count_date)
