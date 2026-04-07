@@ -26,7 +26,7 @@ export default function OutOfStockAlert() {
   }
 
   if (loading) {
-    return <div className="text-center py-4 text-slate-500">Loading...</div>
+    return <div className="text-center py-4 text-slate-500">読み込み中...</div>
   }
 
   if (outOfStock.length === 0) {
@@ -35,8 +35,8 @@ export default function OutOfStockAlert() {
         <div className="flex items-center gap-3">
           <span className="text-2xl">✅</span>
           <div>
-            <h3 className="font-semibold text-green-800">All items in stock</h3>
-            <p className="text-green-600 text-sm">No items with zero quantity found.</p>
+            <h3 className="font-semibold text-green-800">全ての品目が在庫あり</h3>
+            <p className="text-green-600 text-sm">在庫数が0の品目はありません。</p>
           </div>
         </div>
       </div>
@@ -48,18 +48,18 @@ export default function OutOfStockAlert() {
       <div className="flex items-center gap-3 mb-4">
         <span className="text-2xl">⚠️</span>
         <div>
-          <h3 className="font-semibold text-red-800">Out of Stock Alert</h3>
-          <p className="text-red-600 text-sm">{outOfStock.length} item(s) with zero quantity</p>
+          <h3 className="font-semibold text-red-800">在庫切れアラーム</h3>
+          <p className="text-red-600 text-sm">{outOfStock.length} 件の品目が在庫0です</p>
         </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-red-200">
-              <th className="text-left py-2 px-3 text-red-700">Product</th>
-              <th className="text-left py-2 px-3 text-red-700">Location</th>
-              <th className="text-left py-2 px-3 text-red-700">Supplier</th>
-              <th className="text-left py-2 px-3 text-red-700">Owner</th>
+              <th className="text-left py-2 px-3 text-red-700">品名</th>
+              <th className="text-left py-2 px-3 text-red-700">拠点</th>
+              <th className="text-left py-2 px-3 text-red-700">サプライヤー</th>
+              <th className="text-left py-2 px-3 text-red-700">担当者</th>
             </tr>
           </thead>
           <tbody>
