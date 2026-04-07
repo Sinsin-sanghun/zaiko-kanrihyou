@@ -10,6 +10,7 @@ import InventoryPage from './pages/InventoryPage'
 import UserManagementPage from './pages/UserManagementPage'
 import ApprovalPage from './pages/ApprovalPage'
 import TodoPage from './pages/TodoPage'
+import AnalyticsPage from './pages/AnalyticsPage'
 
 const ALLOWED_DOMAIN = 'shirokumapower.com'
 
@@ -93,6 +94,7 @@ export default function App() {
       <Layout session={session} userRole={userRole}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/location/:id" element={<InventoryPage userRole={userRole} session={session} />} />
           <Route path="/todo" element={<TodoPage session={session} />} />
           <Route path="/user-management" element={<UserManagementPage session={session} />} />
