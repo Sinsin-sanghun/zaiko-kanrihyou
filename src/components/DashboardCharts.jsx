@@ -50,7 +50,7 @@ export default function DashboardCharts() {
       // Supplier pie data
       const supplierMap = {}
       items.forEach(item => {
-        const supplier = item.supplier || 'Unknown'
+        const supplier = item.supplier || '不明'
         if (!supplierMap[supplier]) supplierMap[supplier] = 0
         supplierMap[supplier] += 1
       })
@@ -71,13 +71,13 @@ export default function DashboardCharts() {
   }
 
   if (loading) {
-    return <div className="text-center py-8 text-slate-500">Loading charts...</div>
+    return <div className="text-center py-8 text-slate-500">チャートを読み込み中...</div>
   }
 
   return (
     <div className="space-y-8">
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <h2 className="text-lg font-semibold text-slate-700 mb-4">Inventory Trend</h2>
+        <h2 className="text-lg font-semibold text-slate-700 mb-4">在庫推移</h2>
         {monthlyData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={monthlyData}>
@@ -87,17 +87,17 @@ export default function DashboardCharts() {
               <YAxis yAxisId="right" orientation="right" />
               <Tooltip />
               <Legend />
-              <Line yAxisId="left" type="monotone" dataKey="items" stroke="#2563eb" name="Items" />
-              <Line yAxisId="right" type="monotone" dataKey="quantity" stroke="#16a34a" name="Quantity" />
+              <Line yAxisId="left" type="monotone" dataKey="items" stroke="#2563eb" name="品目数" />
+              <Line yAxisId="right" type="monotone" dataKey="quantity" stroke="#16a34a" name="数量" />
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <p className="text-slate-400 text-center py-8">No data</p>
+          <p className="text-slate-400 text-center py-8">データなし</p>
         )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <h2 className="text-lg font-semibold text-slate-700 mb-4">Supplier Breakdown</h2>
+        <h2 className="text-lg font-semibold text-slate-700 mb-4">サプライヤー別構成</h2>
         {supplierData.length > 0 ? (
           <div className="flex flex-col lg:flex-row items-center gap-4">
             <ResponsiveContainer width="100%" height={300}>
@@ -114,7 +114,7 @@ export default function DashboardCharts() {
             </ResponsiveContainer>
           </div>
         ) : (
-          <p className="text-slate-400 text-center py-8">No data</p>
+          <p className="text-slate-400 text-center py-8">データなし</p>
         )}
       </div>
     </div>
