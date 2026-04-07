@@ -7,18 +7,110 @@ import ItemFormModal from '../components/ItemFormModal'
 import DailyCountModal from '../components/DailyCountModal'
 import { insertEditLog, confirmEmptyComment } from '../lib/editLogger'
 
-const ITEM_GROUPS = [
-  { name: 'マルチリレー', keyword: 'マルチリレー' },
-  { name: '零相電圧検出器', keyword: '零相電圧検出器' },
-  { name: 'マルチメータ', keyword: 'マルチメータ' },
-  { name: '高速トランスデューサ', keyword: '高速トランスデューサ' },
-  { name: '地絡過電圧保護', keyword: '地絡過電圧保護' },
-  { name: '抵抗投入式負荷開閉器', keyword: '抵抗投入式負荷開閉器' },
-  { name: '過電流継電器', keyword: '過電流継電器' },
-  { name: '不足電圧継電器', keyword: '不足電圧継電器' },
-  { name: '試験用端子', keyword: '試験用端子' },
-  { name: '高力ボルト', keyword: '高力ボルト' },
-  { name: 'QC4コネクタ', keyword: 'QC4コネクタ' },
+const CATEGORY_ORDER = ['購買', '工事', '設計', '弱電', 'OM', 'PPA', 'OM/工事兼用', '所掌不明']
+
+const ITEM_CATEGORY_MAP = [
+  { category: '購買', keyword: 'マルチリレー' },
+  { category: '購買', keyword: '零相電圧検出器' },
+  { category: '購買', keyword: 'マルチメータ' },
+  { category: '購買', keyword: '高速トランスデューサ' },
+  { category: '購買', keyword: '地絡過電圧保護' },
+  { category: '購買', keyword: '抵抗投入式負荷開閉' },
+  { category: '購買', keyword: '過電流継電器' },
+  { category: '購買', keyword: '不足電圧継電器' },
+  { category: '購買', keyword: '試験用端子' },
+  { category: '購買', keyword: 'LCAN600' },
+  { category: '購買', keyword: 'LCC600' },
+  { category: '購買', keyword: '6.6kVCVT150sq' },
+  { category: '購買', keyword: '高力ボルト' },
+  { category: '購買', keyword: '690V端子' },
+  { category: '購買', keyword: 'LAB750' },
+  { category: '購買', keyword: 'バイメタル端子' },
+  { category: '購買', keyword: 'QC4コネクタ' },
+  { category: '購買', keyword: 'ロンジオリジナル' },
+  { category: '購買', keyword: '看板-蓄電池' },
+  { category: '購買', keyword: '看板-変電' },
+  { category: '購買', keyword: '看板-高電圧' },
+  { category: '購買', keyword: '接地抵抗低減' },
+  { category: '購買', keyword: '軟銅より線' },
+  { category: '購買', keyword: 'ダイヤル南京錠' },
+  { category: '工事', keyword: 'SP142B' },
+  { category: '工事', keyword: 'SP143B' },
+  { category: '工事', keyword: 'SP145B' },
+  { category: '工事', keyword: 'SUS 六角' },
+  { category: '工事', keyword: 'S-SPU5' },
+  { category: '工事', keyword: 'ﾀﾞｲﾔﾙ式' },
+  { category: '工事', keyword: 'ﾕﾆｸﾛ' },
+  { category: '工事', keyword: 'ステンレス六角ボルト' },
+  { category: '工事', keyword: 'Makita' },
+  { category: '工事', keyword: 'アンカー引張' },
+  { category: '工事', keyword: '1000V' },
+  { category: '工事', keyword: '充電式油圧圧着' },
+  { category: '工事', keyword: 'PANDUIT' },
+  { category: '工事', keyword: 'TOPCON' },
+  { category: '工事', keyword: 'ネグロス電工' },
+  { category: '工事', keyword: '手動油圧' },
+  { category: '工事', keyword: '赤外線サーモ' },
+  { category: '工事', keyword: '現場関連書類' },
+  { category: '工事', keyword: '量用標尺' },
+  { category: '工事', keyword: 'アルミスタッフ' },
+  { category: '工事', keyword: 'マキタ' },
+  { category: '工事', keyword: '土質標本' },
+  { category: '工事', keyword: '地盤調査' },
+  { category: '工事', keyword: '応急措置' },
+  { category: '設計', keyword: '電気工事用テープ' },
+  { category: '設計', keyword: '零相電圧検出用コンデンサ' },
+  { category: '設計', keyword: 'オムロン' },
+  { category: '弱電', keyword: 'UPS' },
+  { category: '弱電', keyword: '全天日射計' },
+  { category: '弱電', keyword: '3線式Pt100' },
+  { category: '弱電', keyword: '小形漏電' },
+  { category: '弱電', keyword: '2段式' },
+  { category: '弱電', keyword: '切断砥石' },
+  { category: '弱電', keyword: '現場用カメラ' },
+  { category: '弱電', keyword: 'インバーター専用' },
+  { category: '弱電', keyword: 'Brickcom' },
+  { category: '弱電', keyword: 'ムサシ' },
+  { category: '弱電', keyword: '古河電工' },
+  { category: '弱電', keyword: 'Modbus' },
+  { category: '弱電', keyword: '露出スイッチ' },
+  { category: '弱電', keyword: 'AC アダプター' },
+  { category: '弱電', keyword: 'Armadillo' },
+  { category: '弱電', keyword: 'コン柱用金具' },
+  { category: '弱電', keyword: 'アルミ/DIN' },
+  { category: '弱電', keyword: 'ループカーペット' },
+  { category: '弱電', keyword: 'ユニックバンド' },
+  { category: '弱電', keyword: '日辰電機' },
+  { category: '弱電', keyword: '単心ビニル' },
+  { category: '弱電', keyword: 'カメラ屋外壁面' },
+  { category: '弱電', keyword: '小型単結晶' },
+  { category: '弱電', keyword: 'Wi-Fi' },
+  { category: '弱電', keyword: 'ECO-WORTHY' },
+  { category: '弱電', keyword: '設計現場資材' },
+  { category: '弱電', keyword: '品川電線' },
+  { category: '弱電', keyword: '愛知電線' },
+  { category: '弱電', keyword: '冨士電線' },
+  { category: 'OM', keyword: 'デジタル水平器' },
+  { category: 'OM', keyword: '作業現場道具箱' },
+  { category: 'PPA', keyword: 'カーポート用' },
+  { category: 'PPA', keyword: 'ラッカー' },
+  { category: 'OM/工事兼用', keyword: '高電圧絶縁抵抗計' },
+  { category: 'OM/工事兼用', keyword: 'EbisuDiamond' },
+  { category: 'OM/工事兼用', keyword: 'SIGNET' },
+  { category: 'OM/工事兼用', keyword: 'KNIPEX' },
+  { category: 'OM/工事兼用', keyword: 'KAIWEETS' },
+  { category: '所掌不明', keyword: 'リングコア型' },
+  { category: '所掌不明', keyword: 'WIC1' },
+  { category: '所掌不明', keyword: 'コネクタ用内部' },
+  { category: '所掌不明', keyword: 'コネクタ ハウジング' },
+  { category: '所掌不明', keyword: 'ケーブルタイ' },
+  { category: '所掌不明', keyword: 'ネオシール' },
+  { category: '所掌不明', keyword: '圧縮回復型' },
+  { category: '所掌不明', keyword: 'Tヘッドボルト' },
+  { category: '所掌不明', keyword: '丸型鋼' },
+  { category: '所掌不明', keyword: '丸型鋴' },
+  { category: '所掌不明', keyword: 'SAFE JACK' },
+  { category: '所掌不明', keyword: 'カーボンヒーター' },
 ]
 
 export default function InventoryPage({ userRole, session }) {
@@ -35,7 +127,7 @@ export default function InventoryPage({ userRole, session }) {
   const [pendingRequests, setPendingRequests] = useState([])
   const [collapsedGroups, setCollapsedGroups] = useState(() => {
     const initial = {}
-    ITEM_GROUPS.forEach(g => { initial[g.name] = true })
+    CATEGORY_ORDER.forEach(c => { initial[c] = true })
     initial['その他'] = true
     return initial
   })
@@ -127,18 +219,21 @@ export default function InventoryPage({ userRole, session }) {
 
   const getGroupedItems = () => {
     if (id !== '5') return [{ name: null, items: filtered }]
-    const groups = ITEM_GROUPS.map(g => ({ name: g.name, keyword: g.keyword, items: [] }))
+    const groups = {}
+    CATEGORY_ORDER.forEach(c => { groups[c] = [] })
     const other = []
     filtered.forEach(item => {
       const name = item.product_name || ''
-      const matched = groups.find(g => name.includes(g.keyword))
-      if (matched) {
-        matched.items.push(item)
+      const match = ITEM_CATEGORY_MAP.find(m => name.includes(m.keyword))
+      if (match) {
+        groups[match.category].push(item)
       } else {
         other.push(item)
       }
     })
-    const result = groups.filter(g => g.items.length > 0).map(g => ({ name: g.name, items: g.items }))
+    const result = CATEGORY_ORDER
+      .filter(c => groups[c].length > 0)
+      .map(c => ({ name: c, items: groups[c] }))
     if (other.length > 0) {
       result.push({ name: 'その他', items: other })
     }
