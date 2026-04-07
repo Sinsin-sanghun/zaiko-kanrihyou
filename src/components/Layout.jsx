@@ -306,7 +306,7 @@ export default function Layout({ session, children, userRole }) {
                       autoFocus
                     />
                   ) : loc.id === tokyoLocationId ? (
-                    
+                    <a
                       href={`/location/${loc.id}`}
                       onClick={(e) => {
                         e.preventDefault()
