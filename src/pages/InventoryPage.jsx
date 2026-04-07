@@ -9,6 +9,16 @@ import { insertEditLog, confirmEmptyComment } from '../lib/editLogger'
 
 const ITEM_GROUPS = [
 { name: 'マルチリレー', keyword: 'マルチリレー' },
+  { name: '零相電圧検出器', keyword: '零相電圧検出器' },
+  { name: 'マルチメータ', keyword: 'マルチメータ' },
+  { name: '高速トランスデューサ', keyword: '高速トランスデューサ' },
+  { name: '地絡過電圧保護', keyword: '地絡過電圧保護' },
+  { name: '抵抗投入式負荷開閉器', keyword: '抵抗投入式負荷開閉器' },
+  { name: '過電流継電器', keyword: '過電流継電器' },
+  { name: '不足電圧継電器', keyword: '不足電圧継電器' },
+  { name: '試験用端子', keyword: '試験用端子' },
+  { name: '高力ボルト', keyword: '高力ボルト' },
+  { name: 'QC4コネクタ', keyword: 'QC4コネクタ' },
 ]
 
 export default function InventoryPage({ userRole, session }) {
@@ -26,7 +36,7 @@ export default function InventoryPage({ userRole, session }) {
   const [collapsedGroups, setCollapsedGroups] = useState(() => {
     const initial = {}
     ITEM_GROUPS.forEach(g => { initial[g.name] = true })
-    initial['ãã®ä»'] = true
+    initial['その他'] = true
     return initial
   })
 
