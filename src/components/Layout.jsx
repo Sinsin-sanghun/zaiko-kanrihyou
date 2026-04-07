@@ -70,11 +70,11 @@ export default function Layout() {
           <div key={loc.id}>
             {loc.hasCategories ? (
               <>
-                <div
+                <Link
+                  to="/location/5"
                   onClick={handleTokyoClick}
                   style={{
                     ...navLinkStyle(isTokyoPage),
-                    cursor: 'pointer',
                     justifyContent: 'space-between',
                   }}
                 >
@@ -91,7 +91,7 @@ export default function Layout() {
                     </span>
                   </div>
                   {categoryOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                </div>
+                </Link>
 
                 {categoryOpen && (
                   <div style={subMenuStyle}>
