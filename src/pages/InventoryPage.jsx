@@ -119,6 +119,12 @@ const ITEM_CATEGORY_MAP = [
   { category: '所掌不明', keyword: '丸型鋼製ベース' },
   { category: '所掌不明', keyword: 'SAFE JACK' },
   { category: '所掌不明', keyword: 'カーボンヒーター' },
+  { category: '工事', keyword: '温量用標尺' },
+  { category: '弱電', keyword: '漏電プレーカ' },
+  { category: '所掌不明', keyword: '鋴製ベースプレート' },
+  { category: '工事', keyword: '引張試験' },
+  { category: 'OM/工事兼用', keyword: '絵縁メガネレンチ' },
+  { category: '工事', keyword: '絵縁工具セット' },
 ]
 
 export default function InventoryPage({ userRole, session }) {
