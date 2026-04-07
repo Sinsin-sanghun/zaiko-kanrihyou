@@ -237,33 +237,18 @@ export default function InventoryPage({ userRole, session }) {
   const getGroupedItems = () => {
     if (id !== '5') return [{ name: null, items: filtered }]
 
-    const groups = {}
-    CATEGORY_ORDER.forEach(c => { groups[c] = [] })
-    const other = []
-
-    filtered.forEach(item => {
-      const name = item.product_name || ''
-      const match = ITEM_CATEGORY_MAP.find(m => name.includes(m.keyword))
-      if (match) {
-        groups[match.category].push(item)
-      } else {
-        other.push(item)
-      }
-    })
-
     if (selectedCategory) {
-      const categoryItems = groups[selectedCategory] || []
-      return [{ name: null, items: categoryItems }]
+      const groups = {}
+      CATEGORY_ORDER.forEach(c => { groups[c] = [] })
+      filtered.forEach(item => {
+        const name = item.product_name || ''
+        const match = ITEM_CATEGORY_MAP.find(m => name.includes(m.keyword))
+        if (match) groups[match.category].push(item)
+      })
+      return [{ name: null, items: groups[selectedCategory] || [] }]
     }
 
-    const result = CATEGORY_ORDER
-      .filter(c => groups[c].length > 0)
-      .map(c => ({ name: c, items: groups[c] }))
-
-    if (other.length > 0) {
-      result.push({ name: 'その他', items: other })
-    }
-    return result
+    return [{ name: null, items: filtered }]
   }
 
   const groupedItems = getGroupedItems()
@@ -428,7 +413,9 @@ export default function InventoryPage({ userRole, session }) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
-        <span className="text-sm text-slate-500">{filtered.length} 件</span>
+        <span className="text-sm text-slate-500">
+          {selectedCategory ? groupedItems[0]?.items?.length || 0 : filtered.length} 件
+        </span>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
