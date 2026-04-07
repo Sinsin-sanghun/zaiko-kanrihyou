@@ -8,17 +8,7 @@ import DailyCountModal from '../components/DailyCountModal'
 import { insertEditLog, confirmEmptyComment } from '../lib/editLogger'
 
 const ITEM_GROUPS = [
-  { name: 'ãã«ããªã¬ã¼', keyword: 'ãã«ããªã¬ã¼' },
-  { name: 'é¶ç¸é»å§æ¤åºå¨', keyword: 'é¶ç¸é»å§æ¤åºå¨' },
-  { name: 'ãã«ãã¡ã¼ã¿', keyword: 'ãã«ãã¡ã¼ã¿' },
-  { name: 'é«éãã©ã³ã¹ãã¥ã¼ãµ', keyword: 'é«éãã©ã³ã¹ãã¥ã¼ãµ' },
-  { name: 'å°çµ¡éé»å§ä¿è­·', keyword: 'å°çµ¡éé»å§ä¿è­·' },
-  { name: 'æµææå¥å¼è² è·ééå¨', keyword: 'æµææå¥å¼è² è·ééå¨' },
-  { name: 'éé»æµç¶é»å¨', keyword: 'éé»æµç¶é»å¨' },
-  { name: 'ä¸è¶³é»å§ç¶é»å¨', keyword: 'ä¸è¶³é»å§ç¶é»å¨' },
-  { name: 'è©¦é¨ç¨ç«¯å­', keyword: 'è©¦é¨ç¨ç«¯å­' },
-  { name: 'é«åãã«ã', keyword: 'é«åãã«ã' },
-  { name: 'QC4ã³ãã¯ã¿', keyword: 'QC4ã³ãã¯ã¿' },
+{ name: 'マルチリレー', keyword: 'マルチリレー' },
 ]
 
 export default function InventoryPage({ userRole, session }) {
