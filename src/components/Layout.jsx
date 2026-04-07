@@ -26,7 +26,9 @@ export default function Layout({ session, children, userRole }) {
   const [requestingDeletion, setRequestingDeletion] = useState(false)
   const [showApprovalPanel, setShowApprovalPanel] = useState(false)
   const location = useLocation()
-
+const [searchParams] = useSearchParams()
+  const SIDEBAR_CATEGORIES = ['購買', '工事', '設計', '弱電', 'OM', 'PPA', 'OM/工事兼用', '所掌不明']
+  
   useEffect(() => {
     const handleClick = () => setContextMenuId(null)
     document.addEventListener('click', handleClick)
