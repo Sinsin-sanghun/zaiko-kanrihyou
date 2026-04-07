@@ -25,6 +25,7 @@ export default function Layout({ session, children, userRole }) {
   const [renameRequests, setRenameRequests] = useState([])
   const [requestingDeletion, setRequestingDeletion] = useState(false)
   const [showApprovalPanel, setShowApprovalPanel] = useState(false)
+  const [tokyoSubOpen, setTokyoSubOpen] = useState(false)
 
   const location = useLocation()
   const [searchParams] = useSearchParams()
@@ -337,28 +338,39 @@ export default function Layout({ session, children, userRole }) {
                   )}
                 </div>
 
-                {loc.id === 5 && location.pathname === '/location/5' && (
-                  <div className="ml-6 border-l-2 border-blue-200 pl-2 py-1">
-                    <Link
-                      to="/location/5"
-                      className={`block px-2 py-1 rounded text-xs ${
-                        !searchParams.get('category') ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-slate-500 hover:bg-slate-50'
-                      }`}
+                {loc.id === 5 && (
+                  <>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setTokyoSubOpen(!tokyoSubOpen) }}
+                      className="w-full flex items-center gap-1 ml-6 pl-2 py-1 text-xs text-slate-400 hover:text-slate-600"
                     >
-                      全て
-                    </Link>
-                    {SIDEBAR_CATEGORIES.map((cat) => (
-                      <Link
-                        key={cat}
-                        to={`/location/5?category=${encodeURIComponent(cat)}`}
-                        className={`block px-2 py-1 rounded text-xs ${
-                          searchParams.get('category') === cat ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-slate-500 hover:bg-slate-50'
-                        }`}
-                      >
-                        {cat}
-                      </Link>
-                    ))}
-                  </div>
+                      <span className={`transform transition-transform ${tokyoSubOpen ? "rotate-0" : "-rotate-90"}`}>▼</span>
+                      <span>カテゴリ</span>
+                    </button>
+                    {tokyoSubOpen && (
+                      <div className="ml-6 border-l-2 border-blue-200 pl-2 pb-1">
+                        <Link
+                          to="/location/5"
+                          className={`block px-2 py-1 rounded text-xs ${
+                            location.pathname === '/location/5' && !searchParams.get('category') ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-slate-500 hover:bg-slate-50'
+                          }`}
+                        >
+                          全て
+                        </Link>
+                        {SIDEBAR_CATEGORIES.map((cat) => (
+                          <Link
+                            key={cat}
+                            to={`/location/5?category=${encodeURIComponent(cat)}`}
+                            className={`block px-2 py-1 rounded text-xs ${
+                              searchParams.get('category') === cat ? 'bg-blue-100 text-blue-700 font-semibold' : 'text-slate-500 hover:bg-slate-50'
+                            }`}
+                          >
+                            {cat}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </Fragment>
             ))}
