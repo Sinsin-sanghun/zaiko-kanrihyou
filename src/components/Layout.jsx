@@ -10,7 +10,6 @@ import {
   FileText
 } from 'lucide-react';
 
-// ── 拠点データ ──────────────────────────────────────
 const domesticLocations = [
   { id: 5,  name: '東京本社（購買＆設計担当）', hasCategories: true },
   { id: 2,  name: '野田倉庫' },
@@ -24,7 +23,6 @@ const overseasLocations = [
   { id: 4, name: 'DRDRD(練習)' },
 ];
 
-// ── 東京本社カテゴリ ─────────────────────────────────
 const tokyoCategories = [
   { key: 'all',       label: '全て' },
   { key: '購買',      label: '購買',       count: 42 },
@@ -52,7 +50,6 @@ export default function Layout() {
 
   return (
     <div className="app-layout" style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* ── サイドバー ── */}
       <aside className="sidebar" style={sidebarStyle}>
         <div style={sidebarHeaderStyle}>
           <Package size={20} />
@@ -64,7 +61,6 @@ export default function Layout() {
           <span>ダッシュボード</span>
         </Link>
 
-        {/* ─── 日本国内拠点 ─── */}
         <div style={sectionHeaderStyle}>
           <MapPin size={14} color="#3b82f6" />
           <span>日本国内拠点</span>
@@ -97,7 +93,6 @@ export default function Layout() {
                   {categoryOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </div>
 
-                {/* ── カテゴリサブメニュー ── */}
                 {categoryOpen && (
                   <div style={subMenuStyle}>
                     {tokyoCategories.map((cat) => {
@@ -141,7 +136,6 @@ export default function Layout() {
           </div>
         ))}
 
-        {/* ─── 海外拠点 ─── */}
         <div style={sectionHeaderStyle}>
           <Globe size={14} color="#10b981" />
           <span>海外拠点</span>
@@ -177,10 +171,6 @@ export default function Layout() {
     </div>
   );
 }
-
-// ══════════════════════════════════════════════
-// スタイル
-// ══════════════════════════════════════════════
 
 const sidebarStyle = {
   width: '260px',
