@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
@@ -6,6 +6,161 @@ import * as XLSX from 'xlsx'
 import ItemFormModal from '../components/ItemFormModal'
 import DailyCountModal from '../components/DailyCountModal'
 
+/* ─── Excel-style Column Filter Dropdown ─── */
+function ColumnFilterDropdown({ items, field, displayFn, columnFilters, onApply, onClose }) {
+  const ref = useRef(null)
+  const [filterSearch, setFilterSearch] = useState('')
+  const activeSet = columnFilters[field]
+
+  // Collect unique values for this column
+  const allValues = [...new Set(items.map((item) => {
+    const raw = displayFn ? displayFn(item) : (item[field] ?? '')
+    return String(raw)
+  }))].sort((a, b) => a.localeCompare(b, 'ja'))
+
+  const filteredValues = allValues.filter((v) =>
+    v.toLowerCase().includes(filterSearch.toLowerCase())
+  )
+
+  // Local selection state (initially from activeSet, or all selected)
+  const [selected, setSelected] = useState(() => {
+    if (activeSet) return new Set(activeSet)
+    return new Set(allValues)
+  })
+
+  const allChecked = filteredValues.every((v) => selected.has(v))
+
+  const toggleAll = () => {
+    const next = new Set(selected)
+    if (allChecked) {
+      filteredValues.forEach((v) => next.delete(v))
+    } else {
+      filteredValues.forEach((v) => next.add(v))
+    }
+    setSelected(next)
+  }
+
+  const toggle = (val) => {
+    const next = new Set(selected)
+    if (next.has(val)) next.delete(val)
+    else next.add(val)
+    setSelected(next)
+  }
+
+  const handleApply = () => {
+    // If all are selected, remove the filter for this column
+    if (selected.size === allValues.length) {
+      onApply(field, null)
+    } else {
+      onApply(field, selected)
+    }
+  }
+
+  const handleClear = () => {
+    onApply(field, null)
+  }
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onClose()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose])
+
+  return (
+    <div
+      ref={ref}
+      className="absolute top-full left-0 mt-1 bg-white border border-slate-300 rounded-lg shadow-xl z-50 w-64"
+      style={{ maxHeight: '380px' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Search */}
+      <div className="p-2 border-b border-slate-200">
+        <input
+          type="text"
+          value={filterSearch}
+          onChange={(e) => setFilterSearch(e.target.value)}
+          placeholder="検索..."
+          className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded focus:ring-1 focus:ring-blue-400 outline-none"
+          autoFocus
+        />
+      </div>
+
+      {/* Select All */}
+      <div className="px-2 pt-2 pb-1 border-b border-slate-100">
+        <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700 hover:bg-slate-50 px-1 py-1 rounded">
+          <input
+            type="checkbox"
+            checked={allChecked}
+            onChange={toggleAll}
+            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+          />
+          (すべて選択)
+        </label>
+      </div>
+
+      {/* Value list */}
+      <div className="overflow-y-auto" style={{ maxHeight: '220px' }}>
+        {filteredValues.map((val) => (
+          <label
+            key={val}
+            className="flex items-center gap-2 cursor-pointer text-xs text-slate-600 hover:bg-blue-50 px-3 py-1.5"
+          >
+            <input
+              type="checkbox"
+              checked={selected.has(val)}
+              onChange={() => toggle(val)}
+              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="truncate">{val || '(空白)'}</span>
+          </label>
+        ))}
+        {filteredValues.length === 0 && (
+          <div className="px-3 py-4 text-center text-xs text-slate-400">一致なし</div>
+        )}
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex items-center gap-2 p-2 border-t border-slate-200 bg-slate-50 rounded-b-lg">
+        <button
+          onClick={handleClear}
+          className="flex-1 px-3 py-1.5 text-xs text-slate-600 bg-white border border-slate-300 rounded hover:bg-slate-100 transition"
+        >
+          クリア
+        </button>
+        <button
+          onClick={handleApply}
+          className="flex-1 px-3 py-1.5 text-xs text-white bg-blue-600 rounded hover:bg-blue-700 transition"
+        >
+          適用
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Filter Icon SVG ─── */
+function FilterIcon({ active }) {
+  return (
+    <svg
+      className={`w-3.5 h-3.5 ml-1 inline-block ${active ? 'text-blue-600' : 'text-slate-300'}`}
+      fill={active ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+      />
+    </svg>
+  )
+}
+
+/* ─── Main Component ─── */
 export default function InventoryPage({ userRole, session }) {
   const { id } = useParams()
   const [searchParams] = useSearchParams()
@@ -19,6 +174,10 @@ export default function InventoryPage({ userRole, session }) {
   const [sortField, setSortField] = useState('product_name')
   const [sortDir, setSortDir] = useState('asc')
   const [pendingRequests, setPendingRequests] = useState([])
+
+  // Excel-style column filters: { field: Set<string> | null }
+  const [columnFilters, setColumnFilters] = useState({})
+  const [openFilter, setOpenFilter] = useState(null)
 
   const loadItems = useCallback(async () => {
     const { data: loc } = await supabase.from('locations').select('*').eq('id', id).single()
@@ -35,6 +194,7 @@ export default function InventoryPage({ userRole, session }) {
     }
 
     const { data } = await query.order(sortField, { ascending: sortDir === 'asc' })
+
     setItems(data || [])
     setLoading(false)
   }, [id, sortField, sortDir, searchParams])
@@ -61,6 +221,7 @@ export default function InventoryPage({ userRole, session }) {
 
   const handleRequestDelete = async (item) => {
     if (!confirm(`「${item.product_name}」の削除を申請しますか？`)) return
+
     const { error } = await supabase.from('approval_requests').insert({
       type: 'delete_item',
       location_id: Number(id),
@@ -69,6 +230,7 @@ export default function InventoryPage({ userRole, session }) {
       requested_by: session?.user?.email || 'unknown',
       status: 'pending',
     })
+
     if (error) {
       toast.error('削除申請に失敗しました')
     } else {
@@ -79,7 +241,9 @@ export default function InventoryPage({ userRole, session }) {
 
   const handleDelete = async (item) => {
     if (!confirm(`「${item.product_name}」を削除しますか？`)) return
+
     const { error } = await supabase.from('inventory_items').delete().eq('id', item.id)
+
     if (error) {
       toast.error('削除に失敗しました')
     } else {
@@ -102,16 +266,67 @@ export default function InventoryPage({ userRole, session }) {
     return <span className="text-blue-500 ml-1">{sortDir === 'asc' ? '\u25B2' : '\u25BC'}</span>
   }
 
+  /* ── Column filter logic ── */
+  const handleFilterApply = useCallback((field, selectedSet) => {
+    setColumnFilters((prev) => {
+      const next = { ...prev }
+      if (!selectedSet) {
+        delete next[field]
+      } else {
+        next[field] = selectedSet
+      }
+      return next
+    })
+    setOpenFilter(null)
+  }, [])
+
+  const handleFilterToggle = (field, e) => {
+    e.stopPropagation()
+    setOpenFilter((prev) => (prev === field ? null : field))
+  }
+
+  const activeFilterCount = Object.keys(columnFilters).length
+
+  const clearAllFilters = () => {
+    setColumnFilters({})
+    setSearch('')
+  }
+
+  /* ── Display functions for filter value extraction ── */
+  const displayFns = {
+    supplier: (item) => item.supplier || item.manufacturer || '',
+    category: (item) => item.category || '',
+    owner: (item) => item.owner || '',
+    location_detail: (item) => item.location_detail || '',
+    unit: (item) => item.unit || '',
+    quantity: (item) => String(item.quantity ?? 0),
+    unit_price: (item) => String(item.unit_price ?? 0),
+    total_price: (item) => String(item.total_price ?? 0),
+  }
+
+  /* ── Filtering pipeline: text search → column filters ── */
   const filtered = items.filter((item) => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return (
-      (item.product_name || '').toLowerCase().includes(q) ||
-      (item.owner || '').toLowerCase().includes(q) ||
-      (item.supplier || '').toLowerCase().includes(q) ||
-      (item.manufacturer || '').toLowerCase().includes(q) ||
-      (item.remarks || '').toLowerCase().includes(q)
-    )
+    // Text search
+    if (search) {
+      const q = search.toLowerCase()
+      const match =
+        (item.product_name || '').toLowerCase().includes(q) ||
+        (item.owner || '').toLowerCase().includes(q) ||
+        (item.supplier || '').toLowerCase().includes(q) ||
+        (item.manufacturer || '').toLowerCase().includes(q) ||
+        (item.remarks || '').toLowerCase().includes(q)
+      if (!match) return false
+    }
+
+    // Column filters
+    for (const [field, allowedSet] of Object.entries(columnFilters)) {
+      if (!allowedSet) continue
+      const fn = displayFns[field]
+      const val = fn ? fn(item) : String(item[field] ?? '')
+      if (!allowedSet.has(val)) return false
+    }
+
+    return true
   })
 
   const formatCurrency = (val) => {
@@ -123,6 +338,7 @@ export default function InventoryPage({ userRole, session }) {
     const data = filtered.map((item) => ({
       '品名': item.product_name || '',
       '保管場所': item.location_detail || '',
+      'カテゴリ': item.category || '',
       '持ち主': item.owner || '',
       '仕入先': item.supplier || item.manufacturer || '',
       '在庫数': item.quantity ?? 0,
@@ -131,11 +347,48 @@ export default function InventoryPage({ userRole, session }) {
       '合計金額': item.total_price ?? 0,
       '備考': item.remarks || '',
     }))
+
     const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, location?.name || '在庫一覧')
+
     const fileName = `在庫一覧_${location?.name || ''}_${new Date().toISOString().slice(0, 10)}.xlsx`
     XLSX.writeFile(wb, fileName)
+  }
+
+  /* ── Filterable header cell ── */
+  const FilterableHeader = ({ field, label, sortable, align, displayFn }) => {
+    const isFilterActive = !!columnFilters[field]
+    return (
+      <th
+        className={`${align === 'right' ? 'text-right' : 'text-left'} px-4 py-3 font-semibold text-slate-600 select-none whitespace-nowrap relative`}
+      >
+        <span
+          className={sortable ? 'cursor-pointer' : ''}
+          onClick={() => sortable && handleSort(field)}
+        >
+          {label}
+          {sortable && <SortIcon field={field} />}
+        </span>
+        <button
+          onClick={(e) => handleFilterToggle(field, e)}
+          className={`ml-1 p-0.5 rounded hover:bg-slate-200 transition ${isFilterActive ? 'bg-blue-100' : ''}`}
+          title={`${label}でフィルター`}
+        >
+          <FilterIcon active={isFilterActive} />
+        </button>
+        {openFilter === field && (
+          <ColumnFilterDropdown
+            items={items}
+            field={field}
+            displayFn={displayFn}
+            columnFilters={columnFilters}
+            onApply={handleFilterApply}
+            onClose={() => setOpenFilter(null)}
+          />
+        )}
+      </th>
+    )
   }
 
   if (loading) {
@@ -190,26 +443,31 @@ export default function InventoryPage({ userRole, session }) {
           </svg>
         </div>
         <span className="text-sm text-slate-500">{filtered.length} 件</span>
+        {activeFilterCount > 0 && (
+          <button
+            onClick={clearAllFilters}
+            className="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            フィルター解除 ({activeFilterCount})
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="table-container">
+        <div className="table-container" style={{ overflowX: 'auto' }}>
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="text-left px-4 py-3 font-semibold text-slate-600 cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort('product_name')}>
-                  品名<SortIcon field="product_name" />
-                </th>
-                <th className="text-left px-4 py-3 font-semibold text-slate-600 cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort('owner')}>
-                  持ち主<SortIcon field="owner" />
-                </th>
-                <th className="text-left px-4 py-3 font-semibold text-slate-600 cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort('supplier')}>
-                  仕入先<SortIcon field="supplier" />
-                </th>
-                <th className="text-right px-4 py-3 font-semibold text-slate-600 cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort('quantity')}>
-                  在庫数<SortIcon field="quantity" />
-                </th>
-                <th className="text-left px-4 py-3 font-semibold text-slate-600 whitespace-nowrap">単位</th>
+                <FilterableHeader field="category" label="カテゴリ" sortable displayFn={displayFns.category} />
+                <FilterableHeader field="product_name" label="品名" sortable />
+                <FilterableHeader field="owner" label="持ち主" sortable displayFn={displayFns.owner} />
+                <FilterableHeader field="supplier" label="仕入先" sortable displayFn={displayFns.supplier} />
+                <FilterableHeader field="location_detail" label="場所詳細" sortable={false} displayFn={displayFns.location_detail} />
+                <FilterableHeader field="quantity" label="在庫数" sortable align="right" displayFn={displayFns.quantity} />
+                <FilterableHeader field="unit" label="単位" sortable={false} displayFn={displayFns.unit} />
                 <th className="text-right px-4 py-3 font-semibold text-slate-600 cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort('unit_price')}>
                   単価<SortIcon field="unit_price" />
                 </th>
@@ -220,16 +478,25 @@ export default function InventoryPage({ userRole, session }) {
             <tbody>
               {filtered.map((item) => (
                 <tr key={item.id} className="border-b border-slate-100 hover:bg-blue-50/30 transition">
+                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                    {item.category && (
+                      <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-slate-100 text-slate-700">
+                        {item.category}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 max-w-xs">
                     <div className="font-medium text-slate-800 truncate" title={item.product_name}>
                       {item.product_name}
                     </div>
-                    {item.location_detail && (
-                      <div className="text-xs text-slate-400 truncate">{item.location_detail}</div>
-                    )}
                   </td>
                   <td className="px-4 py-3 text-slate-600">{item.owner || '-'}</td>
                   <td className="px-4 py-3 text-slate-600">{item.supplier || item.manufacturer || '-'}</td>
+                  <td className="px-4 py-3 text-slate-500 text-xs">
+                    {item.location_detail ? (
+                      <span className="truncate block max-w-[140px]" title={item.location_detail}>{item.location_detail}</span>
+                    ) : '-'}
+                  </td>
                   <td className="px-4 py-3 text-right font-medium text-slate-800">{formatCurrency(item.quantity)}</td>
                   <td className="px-4 py-3 text-slate-600">{item.unit || '-'}</td>
                   <td className="px-4 py-3 text-right text-slate-600">{formatCurrency(item.unit_price)}</td>
@@ -294,8 +561,8 @@ export default function InventoryPage({ userRole, session }) {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
-                    {search ? '検索結果がありません' : 'データがありません'}
+                  <td colSpan={10} className="px-4 py-12 text-center text-slate-400">
+                    {search || activeFilterCount > 0 ? 'フィルター条件に一致するデータがありません' : 'データがありません'}
                   </td>
                 </tr>
               )}
