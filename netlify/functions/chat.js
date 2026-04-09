@@ -49,9 +49,9 @@ const TOOLS = [
 
 // === Supabase helper ===
 async function sb(path) {
-  const url = `${process.env.SUPABASE_URL}/rest/v1/${path}`;
+  const url = `${process.env.VITE_SUPABASE_URL}/rest/v1/${path}`;
   try {
-    const res = await fetch(url, { headers: { apikey: process.env.SUPABASE_ANON_KEY, Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY}`, "Content-Type": "application/json" } });
+    const res = await fetch(url, { headers: { apikey: process.env.VITE_SUPABASE_ANON_KEY, Authorization: `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`, "Content-Type": "application/json" } });
     if (!res.ok) { const txt = await res.text(); return { error: `HTTP ${res.status}: ${txt.slice(0, 200)}` }; }
     return await res.json();
   } catch (e) { return { error: e.message }; }
