@@ -1,6 +1,6 @@
 // =============================================================
-//  chat.js  - Netlify Serverless Function
-//  Claude API (Anthropic) AI Chat with streaming
+// chat.js - Netlify Serverless Function
+// Claude API (Anthropic) AI Chat with streaming
 // =============================================================
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
@@ -60,6 +60,8 @@ exports.handler = async (event) => {
     }
     messages.push({ role: "user", content: message });
 
+    // Use streaming to Claude API, then consume server-side
+    // (Netlify Functions/Lambda cannot return ReadableStream as body)
     const response = await fetch(ANTHROPIC_API_URL, {
       method: "POST",
       headers: {
@@ -83,14 +85,31 @@ exports.handler = async (event) => {
       return { statusCode: response.status, headers, body: JSON.stringify({ error: "API error: " + response.status }) };
     }
 
+    // Consume the SSE stream and extract text
+    const rawBody = await response.text();
+    let fullText = "";
+    const lines = rawBody.split("\n");
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const payload = line.slice(6);
+      if (payload === "[DONE]") continue;
+      try {
+        const ev = JSON.parse(payload);
+        if (ev.type === "content_block_delta" && ev.delta && ev.delta.type === "text_delta") {
+          fullText += ev.delta.text;
+        }
+      } catch (e) {}
+    }
+
+    if (!fullText) fullText = "\u5fdc\u7b54\u306a\u3057";
+
     return {
       statusCode: 200,
-      headers: { ...headers, "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" },
-      body: response.body,
-      isBase64Encoded: false,
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ response: fullText }),
     };
   } catch (err) {
     console.error("Function error:", err);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: "Internal server error" }) };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: "Internal server error: " + err.message }) };
   }
 };
