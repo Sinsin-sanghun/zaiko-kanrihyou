@@ -43,7 +43,7 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session && !checkDomain(session)) {
         supabase.auth.signOut()
-        toast.error('@shirokumapower.com ã®ã¢ã«ã¦ã³ãã®ã¿å©ç¨ã§ãã¾ã')
+        toast.error('@shirokumapower.com のアカウントのみ利用できます')
         setSession(null)
       } else {
         setSession(session)
@@ -59,7 +59,7 @@ export default function App() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session && !checkDomain(session)) {
         supabase.auth.signOut()
-        toast.error('@shirokumapower.com ã®ã¢ã«ã¦ã³ãã®ã¿å©ç¨ã§ãã¾ã')
+        toast.error('@shirokumapower.com のアカウントのみ利用できます')
         setSession(null)
       } else {
         setSession(session)
@@ -106,4 +106,3 @@ export default function App() {
     </>
   )
 }
-export default App
