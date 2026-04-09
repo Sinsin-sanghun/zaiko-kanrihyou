@@ -78,6 +78,32 @@ export default function App() {
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     )
-}
+  }
 
+  if (!session) {
+    return (
+      <>
+        <Auth />
+        <Toaster position="top-right" />
+      </>
+    )
+  }
+
+  return (
+    <>
+      <Layout session={session} userRole={userRole}>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/location/:id" element={<InventoryPage userRole={userRole} session={session} />} />
+          <Route path="/todo" element={<TodoPage session={session} />} />
+          <Route path="/user-management" element={<UserManagementPage session={session} />} />
+          <Route path="/approvals" element={<ApprovalPage session={session} />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Layout>
+      <Toaster position="top-right" />
+    </>
+  )
+}
 export default App
