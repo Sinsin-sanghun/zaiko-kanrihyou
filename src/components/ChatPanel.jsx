@@ -100,7 +100,7 @@ export default function ChatPanel() {
     <div className="fixed bottom-6 right-6 z-50 w-96 h-[32rem] bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
       <div className="bg-blue-600 text-white px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-lg">\u{1F916}</span>
+          <span className="text-lg">🤖</span>
           <span className="font-bold text-sm">AI Assistant</span>
         </div>
         <button onClick={() => setIsOpen(false)} className="text-white hover:text-gray-200 text-xl leading-none">&times;</button>
