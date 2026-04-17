@@ -3,11 +3,15 @@ import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import { insertEditLog, confirmEmptyComment } from '../lib/editLogger'
 
+const PRESET_CATEGORIES = ['購買', '工事', '設計', '弱電', 'OM', 'PPA', 'OM/工事兼用', '所掌不明']
+
 export default function ItemFormModal({ locationId, item, onClose, onSaved, session }) {
   const isEdit = !!item
+  const initialIsCustomCategory = !!(item?.category && !PRESET_CATEGORIES.includes(item.category))
 
   const [form, setForm] = useState({
     product_name: item?.product_name || '',
+    category: item?.category || '',
     owner: item?.owner || '',
     supplier: item?.supplier || '',
     manufacturer: item?.manufacturer || '',
@@ -18,6 +22,7 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved, sess
     unit_price: item?.unit_price ?? '',
     remarks: item?.remarks || '',
   })
+  const [categoryMode, setCategoryMode] = useState(initialIsCustomCategory ? 'custom' : 'preset')
   const [editComment, setEditComment] = useState('')
   const [saving, setSaving] = useState(false)
   const [editLogs, setEditLogs] = useState([])
@@ -39,7 +44,7 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved, sess
     }
   }, [item?.id])
 
-  const fieldLabels = { product_name: '品名', owner: '持ち主', supplier: '仕入先', manufacturer: 'メーカー', model: '型式', location_detail: '場所詳細', unit: '単位', unit_price: '単価', remarks: '備考' }
+  const fieldLabels = { product_name: '品名', category: 'カテゴリ', owner: '持ち主', supplier: '仕入先', manufacturer: 'メーカー', model: '型式', location_detail: '場所詳細', unit: '単位', unit_price: '単価', remarks: '備考' }
 
   const getChanges = (log) => {
     if (!log.details?.before || !log.details?.after) return []
@@ -58,21 +63,30 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved, sess
     setForm({ ...form, [field]: value })
   }
 
+  const handleCategorySelect = (val) => {
+    if (val === '__custom__') {
+      setCategoryMode('custom')
+      setForm({ ...form, category: '' })
+    } else {
+      setCategoryMode('preset')
+      setForm({ ...form, category: val })
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.product_name.trim()) {
       toast.error('品名を入力してください')
       return
     }
-
     // コメント未記入チェック
     if (!confirmEmptyComment(editComment)) return
 
     setSaving(true)
-
     const payload = {
       location_id: locationId,
       product_name: form.product_name.trim(),
+      category: form.category.trim() || null,
       owner: form.owner.trim() || null,
       supplier: form.supplier.trim() || null,
       manufacturer: form.manufacturer.trim() || null,
@@ -83,7 +97,6 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved, sess
       unit_price: Number(form.unit_price) || 0,
       remarks: form.remarks.trim() || null,
     }
-
     // For new items, initialize quantity and total_price
     if (!isEdit) {
       payload.quantity = 0
@@ -92,7 +105,6 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved, sess
 
     let error
     let resultData
-
     if (isEdit) {
       const res = await supabase.from('inventory_items').update(payload).eq('id', item.id).select()
       error = res.error
@@ -113,13 +125,12 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved, sess
         userEmail: session?.user?.email,
         comment: editComment.trim(),
         details: isEdit
-          ? { before: { product_name: item.product_name, owner: item.owner, supplier: item.supplier, manufacturer: item.manufacturer, model: item.model, location_detail: item.location_detail, unit: item.unit, unit_price: item.unit_price, remarks: item.remarks }, after: payload }
+          ? { before: { product_name: item.product_name, category: item.category, owner: item.owner, supplier: item.supplier, manufacturer: item.manufacturer, model: item.model, location_detail: item.location_detail, unit: item.unit, unit_price: item.unit_price, remarks: item.remarks }, after: payload }
           : { created: payload },
       })
     }
 
     setSaving(false)
-
     if (error) {
       toast.error('保存に失敗しました: ' + error.message)
     } else {
@@ -155,6 +166,30 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved, sess
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               required
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">カテゴリ</label>
+            <select
+              value={categoryMode === 'custom' ? '__custom__' : form.category}
+              onChange={(e) => handleCategorySelect(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+            >
+              <option value="">(未分類)</option>
+              {PRESET_CATEGORIES.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+              <option value="__custom__">その他（直接入力）</option>
+            </select>
+            {categoryMode === 'custom' && (
+              <input
+                type="text"
+                value={form.category}
+                onChange={(e) => handleChange('category', e.target.value)}
+                placeholder="カテゴリ名を入力..."
+                className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              />
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -279,6 +314,7 @@ export default function ItemFormModal({ locationId, item, onClose, onSaved, sess
             </button>
           </div>
         </form>
+
         {isEdit && (
           <div className="px-6 pb-4 border-t border-slate-200 max-h-[35vh] overflow-y-auto">
             <h3 className="text-sm font-bold text-slate-700 pt-3 pb-2 sticky top-0 bg-white">編集履歴</h3>
