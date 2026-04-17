@@ -7,7 +7,7 @@ import ItemFormModal from '../components/ItemFormModal'
 import DailyCountModal from '../components/DailyCountModal'
 
 /* ─── Excel-style Column Filter Dropdown ─── */
-function ColumnFilterDropdown({ items, field, displayFn, columnFilters, onApply, onClose }) {
+function ColumnFilterDropdown({ items, field, displayFn, columnFilters, onApply, onClose, position }) {
   const ref = useRef(null)
   const [filterSearch, setFilterSearch] = useState('')
   const activeSet = columnFilters[field]
@@ -69,11 +69,28 @@ function ColumnFilterDropdown({ items, field, displayFn, columnFilters, onApply,
     return () => document.removeEventListener('mousedown', handler)
   }, [onClose])
 
+  // Close on scroll (reposition would be complex; just close)
+  useEffect(() => {
+    const handler = () => onClose()
+    window.addEventListener('scroll', handler, true)
+    window.addEventListener('resize', handler)
+    return () => {
+      window.removeEventListener('scroll', handler, true)
+      window.removeEventListener('resize', handler)
+    }
+  }, [onClose])
+
   return (
     <div
       ref={ref}
-      className="absolute top-full left-0 mt-1 bg-white border border-slate-300 rounded-lg shadow-xl z-50 w-64"
-      style={{ maxHeight: '380px' }}
+      className="bg-white border border-slate-300 rounded-lg shadow-xl w-64"
+      style={{
+        position: 'fixed',
+        top: position?.top ?? 0,
+        left: position?.left ?? 0,
+        maxHeight: '380px',
+        zIndex: 9999,
+      }}
       onClick={(e) => e.stopPropagation()}
     >
       {/* Search */}
@@ -178,6 +195,7 @@ export default function InventoryPage({ userRole, session }) {
   // Excel-style column filters: { field: Set<string> | null }
   const [columnFilters, setColumnFilters] = useState({})
   const [openFilter, setOpenFilter] = useState(null)
+  const [filterPosition, setFilterPosition] = useState({ top: 0, left: 0 })
 
   const loadItems = useCallback(async () => {
     const { data: loc } = await supabase.from('locations').select('*').eq('id', id).single()
@@ -194,7 +212,6 @@ export default function InventoryPage({ userRole, session }) {
     }
 
     const { data } = await query.order(sortField, { ascending: sortDir === 'asc' })
-
     setItems(data || [])
     setLoading(false)
   }, [id, sortField, sortDir, searchParams])
@@ -280,9 +297,40 @@ export default function InventoryPage({ userRole, session }) {
     setOpenFilter(null)
   }, [])
 
+  /**
+   * Open/close filter dropdown and calculate position based on the filter button.
+   * Dropdown is rendered with position:fixed so it escapes the table's overflow:hidden clip.
+   */
   const handleFilterToggle = (field, e) => {
     e.stopPropagation()
-    setOpenFilter((prev) => (prev === field ? null : field))
+    if (openFilter === field) {
+      setOpenFilter(null)
+      return
+    }
+    const btn = e.currentTarget
+    const rect = btn.getBoundingClientRect()
+    const DROPDOWN_WIDTH = 256
+    const DROPDOWN_MAX_HEIGHT = 380
+    const MARGIN = 8
+    let top = rect.bottom + 4
+    let left = rect.left
+    // Prevent horizontal overflow
+    if (left + DROPDOWN_WIDTH > window.innerWidth - MARGIN) {
+      left = window.innerWidth - DROPDOWN_WIDTH - MARGIN
+    }
+    if (left < MARGIN) left = MARGIN
+    // Flip above if not enough room below
+    if (top + DROPDOWN_MAX_HEIGHT > window.innerHeight - MARGIN) {
+      const aboveTop = rect.top - DROPDOWN_MAX_HEIGHT - 4
+      if (aboveTop >= MARGIN) {
+        top = aboveTop
+      } else {
+        // Neither fits perfectly; align to top margin
+        top = MARGIN
+      }
+    }
+    setFilterPosition({ top, left })
+    setOpenFilter(field)
   }
 
   const activeFilterCount = Object.keys(columnFilters).length
@@ -351,7 +399,6 @@ export default function InventoryPage({ userRole, session }) {
     const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, location?.name || '在庫一覧')
-
     const fileName = `在庫一覧_${location?.name || ''}_${new Date().toISOString().slice(0, 10)}.xlsx`
     XLSX.writeFile(wb, fileName)
   }
@@ -359,9 +406,10 @@ export default function InventoryPage({ userRole, session }) {
   /* ── Filterable header cell ── */
   const FilterableHeader = ({ field, label, sortable, align, displayFn }) => {
     const isFilterActive = !!columnFilters[field]
+
     return (
       <th
-        className={`${align === 'right' ? 'text-right' : 'text-left'} px-4 py-3 font-semibold text-slate-600 select-none whitespace-nowrap relative`}
+        className={`${align === 'right' ? 'text-right' : 'text-left'} px-4 py-3 font-semibold text-slate-600 select-none whitespace-nowrap`}
       >
         <span
           className={sortable ? 'cursor-pointer' : ''}
@@ -385,6 +433,7 @@ export default function InventoryPage({ userRole, session }) {
             columnFilters={columnFilters}
             onApply={handleFilterApply}
             onClose={() => setOpenFilter(null)}
+            position={filterPosition}
           />
         )}
       </th>
